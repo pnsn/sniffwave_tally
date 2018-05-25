@@ -2,7 +2,7 @@
 
 # Can be used to run sniffwave-tally as a cron-job.
 # for example, if you want to collect latency and gap information in 10 minute
-# intervals, set the DURATION to 600s and let cron run the script every 10 minute.
+# intervals, set the DURATION to 600s and let cron run the script every 10 minutes.
 # e.g.
 # 05,15,25,35,45,55 * * * * /full/path/to/cron-sniffwave-tally.sh > /tmp/cron-sniffwave-tally.out 2>&1
 #
@@ -37,6 +37,6 @@ if [ "x${EW_PARAMS}x" = "xx" ]; then
 fi
 outputfile=${OUTDIR}/`date -u +%F`_for_stationreport.csv
 
-cmd="${BINDIR}/sniffwave-tally --bindir ${SNIFFWAVE_DIR} --fname $outputfile $RINGNAME wild wild wild wild $DURATION"
+cmd="${SCRIPT_DIR}/sniffwave-tally --bindir ${SNIFFWAVE_DIR} --fname $outputfile $RINGNAME wild wild wild wild $DURATION"
 echo "running: $cmd"
 `$cmd`

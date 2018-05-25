@@ -15,7 +15,6 @@ import math
 from subprocess import Popen,PIPE
 
 LATENCY_THRESHOLD = 3.5 # good latency <= 3.5s
-PENALTY = 30 # number of seconds added to gap duration to account for resetting processors
 TOLERANCE = 1e-4 # tolerance when comparing begin and end time of packets to determine gaps and overlaps
 
 #DAVN.BHZ.UW.-- (0x32 0x30) 0 i4  40  40.0 2018/05/24 01:43:32.53 (1527126212.5250) 2018/05/24 01:43:33.50 (1527126213.5000) 0x20 0x20 i2 m71 t19 len 224 [D:8173.7s F: 0.0s]
