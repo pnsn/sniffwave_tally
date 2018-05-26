@@ -35,8 +35,7 @@ if [ "x${EW_PARAMS}x" = "xx" ]; then
     echo "environment variable EW_PARAMS not set, required to run sniffwave"
     exit 1
 fi
-outputfile=${OUTDIR}/`date -u +%F`_for_stationreport.csv
 
-cmd="${SCRIPT_DIR}/sniffwave-tally --bindir ${SNIFFWAVE_DIR} --fname $outputfile $RINGNAME wild wild wild wild $DURATION"
-echo "running: $cmd"
+cmd="${SCRIPT_DIR}/sniffwave-tally --bindir ${SNIFFWAVE_DIR} --outdir ${OUTDIR} $RINGNAME wild wild wild wild $DURATION"
+echo "running: ${cmd}"
 `$cmd`

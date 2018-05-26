@@ -13,11 +13,14 @@ import time
 import re
 import math
 from subprocess import Popen,PIPE
+from datetime import datetime
 
 LATENCY_THRESHOLD = 3.5 # good latency <= 3.5s
 TOLERANCE = 1e-4 # tolerance when comparing begin and end time of packets to determine gaps and overlaps
+default_seconds = 10
 
 #DAVN.BHZ.UW.-- (0x32 0x30) 0 i4  40  40.0 2018/05/24 01:43:32.53 (1527126212.5250) 2018/05/24 01:43:33.50 (1527126213.5000) 0x20 0x20 i2 m71 t19 len 224 [D:8173.7s F: 0.0s]
+
 # match seismic channels only
 rechan=re.compile(r'[B,H][H,N][E,N,Z,1,2,3]')
 # sample rate is the first non-integer
@@ -29,14 +32,24 @@ relat=re.compile(r'D:([\- 0-9\.]+)s')
 # scnl 4 fields separated by periods
 resncl=re.compile(r'^[A-Z0-9]+\.[A-Z0-9]+\.[A-Z0-9]+\.[A-Z0-9-]+')
 
-usage='''Usage: sniffwave_analyzer.py RING_NAME [options]
-where [options] includes all of the standard options for sniffwave
-except 'n' and 'y'.  If time is not specified a default of 10 seconds
-will be assumed. First 10 seconds of data will not be included in
-statistics.
-'''
 
-default_seconds=10
+
+def usage():
+    """ Create usage message """
+
+    information = \
+    """
+        IMPROVE
+        Usage: sniffwave-tally RING_NAME [options]
+        where [options] includes all of the standard options for sniffwave
+        except 'n' and 'y'.  If time is not specified a default of 10 seconds
+        will be assumed. First 10 seconds of data will not be included in
+        statistics.
+    """         
+#    "starttime", "endtime", "duration", "npackets", "nlate", "ngap", \
+#                "gap_dur", "noverlap", "overlap_dur", "n_oo", "oo_dur"
+    print(information)
+    return
 
 def parseline(s):
     """
@@ -173,7 +186,7 @@ if __name__=="__main__":
             int: status
 
         Example:
-            sniffwave_analyzer WAVE_RING wild wild wild wild 600 > sniff_10min.txt
+            sniffwave-tally WAVE_RING wild wild wild wild 600 > sniff_10min.txt
 
         prints the following metrics to STDOUT::
              scnl, starttime, endtime, number_good, number_bad, number_good_incl_penalty, number_bad_incl_penalty, ngaps, gap_duration
@@ -182,8 +195,17 @@ if __name__=="__main__":
     latlon=False
     seconds=None # duration of running sniffwave or interval of which output is written
     bindir="/home/eworm/bin" # path to sniffwave
-    if len(sys.argv) >= 1:
+    outdir="/tmp" # path to output directory
+    if len(sys.argv) >= 6:
         #set up command string
+        try:
+            index = sys.argv.index('--outdir')
+            outdir = sys.argv[index+1]
+            print("writing  to {}".format(outdir))
+            sys.argv.remove('--outdir')
+            sys.argv.pop(index)
+        except:
+            pass #  keep default
         try:
             index = sys.argv.index('--fname')
             filename = sys.argv[index+1]
@@ -191,14 +213,16 @@ if __name__=="__main__":
             sys.argv.remove('--fname')
             sys.argv.pop(index)
         except:
-            filename = None
+            # default: outdir/utc_date_sniffwave-tally.csv
+            now = datetime.utcnow()
+            filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave-tally.csv"
         try:
             index = sys.argv.index('--bindir')
             bindir = sys.argv[index+1]
             sys.argv.remove('--bindir')
             sys.argv.pop(index)
         except:
-            pass
+            pass # keep default
         if '--latlon' in sys.argv:  #add lat-lon to output
             latlon=getStationDict()
             sys.argv.remove('--latlon')
@@ -214,14 +238,17 @@ if __name__=="__main__":
         cmd=[bindir + '/sniffwave']+sys.argv[1:]
         unixstart=time.time()
     else:
-        print(usage)
+        usage()
         sys.exit(0)
 
-    #run program
-    #print 'Accumulating statistics for %d seconds.  Please wait.'%seconds
+    #run sniffwave and consume output lines while it runs
     print(cmd)
     intervalstart = unixstart
-    p=Popen(cmd,stdout=PIPE)
+    try:
+        p=Popen(cmd,stdout=PIPE)
+    except Exception as e:
+        print("Error running {}: {}".format(cmd,e))
+        sys.exit(1)
     output = p.stdout.readlines()
     if output:
     #with open("data/sniffwave.out","r") as output:
