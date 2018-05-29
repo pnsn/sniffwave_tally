@@ -15,24 +15,41 @@ duration of the packet.
 
 ## Arguments
 *Required:* 
- RING_NAME	name of the earthworm ring you want to sniff
- sta		station code, specify *wild* for all
- chan		channel code, specify *wild* for all
- net		network code, specify *wild* for all
- loc		location code, specify *wild* for all, *--* for none
- duration	the number of seconds for which to run sniffwave
+<dl>
+<dt>RING_NAME</dt>
+<dd>name of the earthworm ring you want to sniff</dd>
+<dt>sta</dt>
+<dd>station code, specify *wild* for all</dd>
+<dt>chan</dt>
+<dd>channel code, specify *wild* for all</dd>
+<dt>net</dt>
+<dd>network code, specify *wild* for all</dd>
+<dt>loc</dt>
+<dd>location code, specify *wild* for all, *--* for none</dd>
+<dt>duration</dt>
+<dd>the number of seconds for which to run sniffwave</dd>
+</dl>
 
 *Optional:*
- --bindir dirname where dirname is the full absolute path to the directory containing 
-the sniffwave binary (not needed if sniffwave in PATH)
- --outdir dirname where dirname is the full absolute path to the directory that 
-you want output files to go (default=/tmp)
- --fname filename name of output file (default=YYYY-MM-dd_sniffwave-tally.csv, 
-where YYYY-MM-dd is today's UTC date)
+<dl>
+<dt>--bindir dirname</dt>
+<dd>where dirname is the full absolute path to the directory containing 
+the sniffwave binary (not needed if sniffwave in PATH)</dd>
+<dt>--outdir dirname</dt>
+<dd>where dirname is the full absolute path to the directory that 
+you want output files to go (default=/tmp)</dd>
+<dt>--fname filename</dt>
+<dd>name of output file (default=YYYY-MM-dd_sniffwave-tally.csv, 
+where YYYY-MM-dd is today's UTC date)</dd>
+</dl>
 
 ## Output format
-Currently there is only one output format, a comma-separated-values (csv) file with the following fields:
-scnl: ,starttime,endtime,duration,npackets,nlate,ngap,gap_dur,noverlap,overlap_dur,n_oo,oo_durxamples
+sniffwave-tally appends output to a file (it creates the file if it doesn't exist yet). 
+By default the file is named `/tmp/YYYY-MM-dd_sniffwave-tally.csv`, but you can specify a 
+different output directory using the --outdir flag. Multiple runs on the same UTC day get
+concatenated into the same `YYYY-MM-dd_sniffwave-tally.csv` file, unless a different
+filename is specified using the --fname option. Currently there is only one output format, 
+a comma-separated-values (csv) file with the following fields:
 <dl>
 <dt>scnl</dt>
 <dd>STA.CHAN.NET.LOC channel description</dd>
@@ -60,6 +77,31 @@ scnl: ,starttime,endtime,duration,npackets,nlate,ngap,gap_dur,noverlap,overlap_d
 <dd>total duration of out-of-order packets, in seconds</dd>
 </dl>
 
+# cron-sniffwave-tally.sh
+Shell-script wrapper to run sniffwave-tally as a cron-job.
+
+```
+# Can be used to run sniffwave-tally as a cron-job.
+# for example, if you want to collect latency and gap information in 10 minute
+# intervals, set the DURATION to 600s and let cron run the script every 10 minutes.
+# e.g.
+# 05,15,25,35,45,55 * * * * /full/path/to/cron-sniffwave-tally.sh > /tmp/cron-sniffwave-tally.out 2>&1
+#
+# WARNING: this setup appends the output from different sniffwave-tally runs on the same UTC date 
+# to the same file, so do not let the sniffwave runs overlap because the output might get jumbled 
+# up in the output files.  I.e. don't run this with DURATION = 600 (10 minutes) every 5 minutes.
+# If you run this every 10 minutes with a DURATION = 300 (5 minutes), you get numbers relevant for
+# only half the time duration (i.e. 6 times 5 minutes, 30 minutes monitored each hour) but sampled 
+# over the full hour.
+
+# modify these parameters as needed for your system
+EWENV=/home/eworm/.bashrc     # file to source to set earthworm envs
+SNIFFWAVE_DIR=/home/eworm/bin # name of directory with sniffwave executable
+SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniffwave-tally
+OUTDIR=/tmp                   # directory that output files from sniffwave-tally will go into
+RINGNAME=WAVE_RING            # earthworm wave ring to monitor
+DURATION=600                  # duration to run sniffwave for in s
+```
 # Collecting latency information for eew_stationreport
 
 ## Summary
