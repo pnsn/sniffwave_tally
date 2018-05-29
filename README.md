@@ -1,12 +1,12 @@
-# sniffwave-tally
+# sniffwave_tally
 python script and bash wrapper to tally output from earthworm's sniffwave.
 
 # Synopsis
- sniffwave-tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir]
+ sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir]
 ring_name sta chan net loc duration
 
 # Description
-sniffwave-tally does what the name implies, it runs the earthworm program sniffwave for a 
+sniffwave_tally does what the name implies, it runs the earthworm program sniffwave for a 
 specified duration and writes various stats to a file. Currently it only outputs fields 
 needed by the eew_stationreport script (https://github.com/pnsn/station-monitor), however, 
 it also calculates the average latency and standard deviation.  The latency it outputs 
@@ -39,15 +39,15 @@ the sniffwave binary (not needed if sniffwave in PATH)</dd>
 <dd>where dirname is the full absolute path to the directory that 
 you want output files to go (default=/tmp)</dd>
 <dt>--fname filename</dt>
-<dd>name of output file (default=YYYY-MM-dd_sniffwave-tally.csv, 
+<dd>name of output file (default=YYYY-MM-dd_sniffwave_tally.csv, 
 where YYYY-MM-dd is today's UTC date)</dd>
 </dl>
 
 ## Output format
-sniffwave-tally appends output to a file (it creates the file if it doesn't exist yet). 
-By default the file is named `/tmp/YYYY-MM-dd_sniffwave-tally.csv`, but you can specify a 
+sniffwave_tally appends output to a file (it creates the file if it doesn't exist yet). 
+By default the file is named `/tmp/YYYY-MM-dd_sniffwave_tally.csv`, but you can specify a 
 different output directory using the --outdir flag. Multiple runs on the same UTC day get
-concatenated into the same `YYYY-MM-dd_sniffwave-tally.csv` file, unless a different
+concatenated into the same `YYYY-MM-dd_sniffwave_tally.csv` file, unless a different
 filename is specified using the --fname option. Currently there is only one output format, 
 a comma-separated-values (csv) file with the following fields:
 <dl>
@@ -77,17 +77,17 @@ a comma-separated-values (csv) file with the following fields:
 <dd>total duration of out-of-order packets, in seconds</dd>
 </dl>
 
-# cron-sniffwave-tally.sh
-Shell-script wrapper to run sniffwave-tally as a cron-job.
+# cron_sniffwave_tally.sh
+Shell-script wrapper to run sniffwave_tally as a cron-job.
 
 ```
-# Can be used to run sniffwave-tally as a cron-job.
+# Can be used to run sniffwave_tally as a cron-job.
 # for example, if you want to collect latency and gap information in 10 minute
 # intervals, set the DURATION to 600s and let cron run the script every 10 minutes.
 # e.g.
-# 05,15,25,35,45,55 * * * * /full/path/to/cron-sniffwave-tally.sh > /tmp/cron-sniffwave-tally.out 2>&1
+# 05,15,25,35,45,55 * * * * /full/path/to/cron_sniffwave_tally.sh > /tmp/cron_sniffwave_tally.out 2>&1
 #
-# WARNING: this setup appends the output from different sniffwave-tally runs on the same UTC date 
+# WARNING: this setup appends the output from different sniffwave_tally runs on the same UTC date 
 # to the same file, so do not let the sniffwave runs overlap because the output might get jumbled 
 # up in the output files.  I.e. don't run this with DURATION = 600 (10 minutes) every 5 minutes.
 # If you run this every 10 minutes with a DURATION = 300 (5 minutes), you get numbers relevant for
@@ -97,8 +97,8 @@ Shell-script wrapper to run sniffwave-tally as a cron-job.
 # modify these parameters as needed for your system
 EWENV=/home/eworm/.bashrc     # file to source to set earthworm envs
 SNIFFWAVE_DIR=/home/eworm/bin # name of directory with sniffwave executable
-SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniffwave-tally
-OUTDIR=/tmp                   # directory that output files from sniffwave-tally will go into
+SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniffwave_tally
+OUTDIR=/tmp                   # directory that output files from sniffwave_tally will go into
 RINGNAME=WAVE_RING            # earthworm wave ring to monitor
 DURATION=600                  # duration to run sniffwave for in s
 ```

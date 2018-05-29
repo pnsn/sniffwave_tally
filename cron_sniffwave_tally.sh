@@ -1,12 +1,12 @@
 #!/bin/sh
 
-# Can be used to run sniffwave-tally as a cron-job.
+# Can be used to run sniffwave_tally as a cron-job.
 # for example, if you want to collect latency and gap information in 10 minute
 # intervals, set the DURATION to 600s and let cron run the script every 10 minutes.
 # e.g.
-# 05,15,25,35,45,55 * * * * /full/path/to/cron-sniffwave-tally.sh > /tmp/cron-sniffwave-tally.out 2>&1
+# 05,15,25,35,45,55 * * * * /full/path/to/cron_sniffwave_tally.sh > /tmp/cron_sniffwave_tally.out 2>&1
 #
-# WARNING: this setup appends the output from different sniffwave-tally runs on the same UTC date 
+# WARNING: this setup appends the output from different sniffwave_tally runs on the same UTC date 
 # to the same file, so do not let the sniffwave runs overlap because the output might get jumbled 
 # up in the output files.  I.e. don't run this with DURATION = 600 (10 minutes) every 5 minutes.
 # If you run this every 10 minutes with a DURATION = 300 (5 minutes), you get numbers relevant for
@@ -16,8 +16,8 @@
 # modify these parameters as needed for your system
 EWENV=/home/eworm/.bashrc     # file to source to set earthworm envs
 SNIFFWAVE_DIR=/home/eworm/bin # name of directory with sniffwave executable
-SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniffwave-tally
-OUTDIR=/tmp                   # directory that output files from sniffwave-tally will go into
+SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniffwave_tally
+OUTDIR=/tmp                   # directory that output files from sniffwave_tally will go into
 RINGNAME=WAVE_RING            # earthworm wave ring to monitor
 DURATION=600                  # duration to run sniffwave for in s
 
@@ -36,6 +36,6 @@ if [ "x${EW_PARAMS}x" = "xx" ]; then
     exit 1
 fi
 
-cmd="${SCRIPT_DIR}/sniffwave-tally --bindir ${SNIFFWAVE_DIR} --outdir ${OUTDIR} $RINGNAME wild wild wild wild $DURATION"
+cmd="${SCRIPT_DIR}/sniffwave_tally --bindir ${SNIFFWAVE_DIR} --outdir ${OUTDIR} $RINGNAME wild wild wild wild $DURATION"
 echo "running: ${cmd}"
 `$cmd`

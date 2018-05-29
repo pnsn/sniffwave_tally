@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 
-# sniffwave-tally: Renate Hartog, PNSN May 2018
+# sniffwave_tally: Renate Hartog, PNSN May 2018
 # 
 # wrapper for sniffwave to tally late packets and gaps
 # Largely based on latte.py: Victor Kress, PNSN 2014/9/16
@@ -39,8 +39,8 @@ def usage():
 
     information = \
     """
-        IMPROVE
-        Usage: sniffwave-tally RING_NAME [options]
+        TO DO: STILL HAVE to FIX THIS USAGE MESSAGE
+        Usage: sniffwave_tally RING_NAME [options]
         where [options] includes all of the standard options for sniffwave
         except 'n' and 'y'.  If time is not specified a default of 10 seconds
         will be assumed. First 10 seconds of data will not be included in
@@ -186,7 +186,7 @@ if __name__=="__main__":
             int: status
 
         Example:
-            sniffwave-tally WAVE_RING wild wild wild wild 600 > sniff_10min.txt
+            sniffwave_tally WAVE_RING wild wild wild wild 600 > sniff_10min.txt
 
         prints the following metrics to STDOUT::
              scnl, starttime, endtime, number_good, number_bad, number_good_incl_penalty, number_bad_incl_penalty, ngaps, gap_duration
@@ -213,9 +213,9 @@ if __name__=="__main__":
             sys.argv.remove('--fname')
             sys.argv.pop(index)
         except:
-            # default: outdir/utc_date_sniffwave-tally.csv
+            # default: outdir/utc_date_sniffwave_tally.csv
             now = datetime.utcnow()
-            filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave-tally.csv"
+            filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally.csv"
         try:
             index = sys.argv.index('--bindir')
             bindir = sys.argv[index+1]
