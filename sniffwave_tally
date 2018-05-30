@@ -39,15 +39,34 @@ def usage():
 
     information = \
     """
-        TO DO: STILL HAVE to FIX THIS USAGE MESSAGE
-        Usage: sniffwave_tally RING_NAME [options]
-        where [options] includes all of the standard options for sniffwave
-        except 'n' and 'y'.  If time is not specified a default of 10 seconds
-        will be assumed. First 10 seconds of data will not be included in
-        statistics.
+        Usage: sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] ring_name sta chan net loc duration
+
+        where:
+            ring_name:	name of earthworm ring to sniff
+            sta:	station code or wild
+            chan:	channel code or wild
+            loc:	location code or wild (-- for no-location code)
+            duration:	number of seconds for which to run sniffwave
+        options:
+            --bindir sniffwave-bin-dir:	full path of directory containing sniffwave executable (default = /home/eworm/bin)
+            --outdir output-dir:	full path to of directory to put output files in (default = /tmp)
+            --fname  filename:		name of output file (default = YYYY-mm-dd_sniffwave_tally.csv, where YYYY-mm-dd is current UTC date)	
+
+        Output:
+            creates or appends to file the following fields:
+            scnl:	STA.CHAN.NET.LOC
+            starttime:	starttime of first packet in measurement window (epoch seconds) 
+            endtime:	endtime of last packet in measurement window (epoch seconds)
+            duration:	total duration of measurement window (seconds)
+            npackets:	total number of packets seen during measurement window
+            nlate:	number of packets with latency > 3.5s
+            ngap:	number of gaps
+            gap_dur:	total duration of gaps (seconds)
+            noverlap:	number of packets that overlap previous packet
+            overlap_dur:total duration of overlapping packets
+            n_oo:	number of out-of-order packets
+            oo_dur:	total duration of out-of-order packets
     """         
-#    "starttime", "endtime", "duration", "npackets", "nlate", "ngap", \
-#                "gap_dur", "noverlap", "overlap_dur", "n_oo", "oo_dur"
     print(information)
     return
 
@@ -67,7 +86,6 @@ def parseline(s):
             4-latency = difference in s between now and endtime of packet
 
     """
-    srate = 1.
     scnl = s.lstrip().split(' ',1)[0]
     if s.rstrip()[-1] != ']':
         return None
@@ -83,9 +101,6 @@ def parseline(s):
     except Exception as e:
         print('could not parse\n{}: {}'.format(s,e))
         return None
-    #if latency<0.0:
-    #    print('{} second latency for {}. Ignoring.'.format(latency,scnl))
-    #    return None
     return (scnl,dt,starttime,endtime,latency)
 
 def average_stdev(x,x2,n):
@@ -181,15 +196,17 @@ if __name__=="__main__":
             net(string): network code to sniff for, use 'wild' for all
             loc(string): location code to sniff for, use 'wild' for all
             duration(float): duration in s to sniff for (optional, default=10s)
-            --fname(string): name of output-file, if omitted, output goes to STDOUT
+            --fname(string): name of output-file, if omitted, output goes to outdir/YYYY-mm-dd_sniffwave_tally.csv
+            --outdir(string): name of output directory, default = /tmp
+            --bindir(string): full path to directory containing sniffwave executable (default = /home/eworm/bin)
         Returns:
             int: status
 
         Example:
-            sniffwave_tally WAVE_RING wild wild wild wild 600 > sniff_10min.txt
+            sniffwave_tally WAVE_RING wild wild wild wild 600
 
-        prints the following metrics to STDOUT::
-             scnl, starttime, endtime, number_good, number_bad, number_good_incl_penalty, number_bad_incl_penalty, ngaps, gap_duration
+        writes the following metrics to file:
+             scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur
   
     """
     latlon=False
@@ -251,7 +268,6 @@ if __name__=="__main__":
         sys.exit(1)
     output = p.stdout.readlines()
     if output:
-    #with open("data/sniffwave.out","r") as output:
         scnldict={}
         for line in output:
             p=parseline(line)
@@ -306,9 +322,6 @@ if __name__=="__main__":
                         if latency > LATENCY_THRESHOLD:
                             scnldict[scnl]['nlate'] += 1
 
-    # future to do: allow running continuously, with periodic output to a file.
-    #continuous = False
-    #if not continuous:
     # output at the end of the sniffwave run
     for scnl in scnldict:
         # get average latency and approximate stdev
