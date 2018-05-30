@@ -1,0 +1,5 @@
+version 1.0.0 (Renate):
+    options: --bindir, --outdir, --fname
+    output: eew_stationreport_input()
+    misc: calculates average latency and approximate stdev per scnl (not in output)
+    misc: calculates average packet length and approximate stdev per scnl (not in output)
