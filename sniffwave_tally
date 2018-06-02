@@ -51,6 +51,7 @@ def usage():
             --bindir sniffwave-bin-dir:	full path of directory containing sniffwave executable (default = /home/eworm/bin)
             --outdir output-dir:	full path to of directory to put output files in (default = /tmp)
             --fname  filename:		name of output file (default = YYYY-mm-dd_sniffwave_tally.csv, where YYYY-mm-dd is current UTC date)	
+            --institution institution:  institiution name to append to default output, e.g. YYYY-mm-dd_sniffwave_tally.PNSN.csv
 
         Output:
             creates or appends to file the following fields:
@@ -224,6 +225,14 @@ if __name__=="__main__":
         except:
             pass #  keep default
         try:
+            index = sys.argv.index('--institution')
+            institution = sys.argv[index+1]
+            print("writing  to {}".format(insitution))
+            sys.argv.remove('--institution')
+            sys.argv.pop(index)
+        except:
+            pass #  keep default
+        try:
             index = sys.argv.index('--fname')
             filename = sys.argv[index+1]
             print("writing  to {}".format(filename))
@@ -232,7 +241,10 @@ if __name__=="__main__":
         except:
             # default: outdir/utc_date_sniffwave_tally.csv
             now = datetime.utcnow()
-            filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally.csv"
+            if ( institution is none ):
+                filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally.csv"
+            else:
+                filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally." + institution  + ".csv"
         try:
             index = sys.argv.index('--bindir')
             bindir = sys.argv[index+1]

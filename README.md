@@ -41,15 +41,19 @@ you want output files to go (default=/tmp)</dd>
 <dt>--fname filename</dt>
 <dd>name of output file (default=YYYY-MM-dd_sniffwave_tally.csv, 
 where YYYY-MM-dd is today's UTC date)</dd>
+<dt>--institution institution</dt>
+<dd>name of institution identifier for output file.
+ If no fname, i.e. default: YYYY-MM-dd_sniffwave_tally.institution.csv </dd>
 </dl>
 
 ## Output format
 sniffwave_tally appends output to a file (it creates the file if it doesn't exist yet). 
 By default the file is named `/tmp/YYYY-MM-dd_sniffwave_tally.csv`, but you can specify a 
-different output directory using the --outdir flag. Multiple runs on the same UTC day get
-concatenated into the same `YYYY-MM-dd_sniffwave_tally.csv` file, unless a different
-filename is specified using the --fname option. Currently there is only one output format, 
-a comma-separated-values (csv) file with the following fields:
+different output directory using the --outdir flag. Using the --institution flag will make
+the default filename `/tmp/YYYY-MM-dd_sniffwave_tally.institution.csv` Multiple runs on 
+the same UTC day get concatenated into the same `YYYY-MM-dd_sniffwave_tally.csv` file, 
+unless a different filename is specified using the --fname option. Currently there is 
+only one output format, a comma-separated-values (csv) file with the following fields:
 <dl>
 <dt>scnl</dt>
 <dd>STA.CHAN.NET.LOC channel description</dd>
