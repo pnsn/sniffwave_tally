@@ -39,7 +39,7 @@ def usage():
 
     information = \
     """
-        Usage: sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] ring_name sta chan net loc duration
+        Usage: sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution_id ] ring_name sta chan net loc duration
 
         where:
             ring_name:	name of earthworm ring to sniff
@@ -51,7 +51,7 @@ def usage():
             --bindir sniffwave-bin-dir:	full path of directory containing sniffwave executable (default = /home/eworm/bin)
             --outdir output-dir:	full path to of directory to put output files in (default = /tmp)
             --fname  filename:		name of output file (default = YYYY-mm-dd_sniffwave_tally.csv, where YYYY-mm-dd is current UTC date)	
-            --institution institution:  institiution name to append to default output, e.g. YYYY-mm-dd_sniffwave_tally.PNSN.csv
+            --inst   institution:  institiution name to append to default output, e.g. YYYY-mm-dd_sniffwave_tally.PNSN.csv
 
         Output:
             creates or appends to file the following fields:
@@ -219,32 +219,33 @@ if __name__=="__main__":
         try:
             index = sys.argv.index('--outdir')
             outdir = sys.argv[index+1]
-            print("writing  to {}".format(outdir))
             sys.argv.remove('--outdir')
             sys.argv.pop(index)
         except:
             pass #  keep default
         try:
-            index = sys.argv.index('--institution')
+            index = sys.argv.index('--inst')
             institution = sys.argv[index+1]
-            print("writing  to {}".format(insitution))
-            sys.argv.remove('--institution')
+            sys.argv.remove('--inst')
             sys.argv.pop(index)
         except:
             pass #  keep default
         try:
             index = sys.argv.index('--fname')
             filename = sys.argv[index+1]
-            print("writing  to {}".format(filename))
             sys.argv.remove('--fname')
             sys.argv.pop(index)
+            try:
+                filename = outdir + "/" + filename + "." + institution + ".csv"
+            except:
+                filename = outdir + "/" + filename + ".csv"
         except:
             # default: outdir/utc_date_sniffwave_tally.csv
             now = datetime.utcnow()
-            if ( institution is none ):
+            try:
+                filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally." + institution + ".csv"
+            except:
                 filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally.csv"
-            else:
-                filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally." + institution  + ".csv"
         try:
             index = sys.argv.index('--bindir')
             bindir = sys.argv[index+1]
@@ -264,6 +265,7 @@ if __name__=="__main__":
                 sys.argv[-1]='%s'%seconds
             else:
                 sys.argv.append('%s'%seconds)
+        print("writing  to  {}".format(filename))
         cmd=[bindir + '/sniffwave']+sys.argv[1:]
         unixstart=time.time()
     else:
@@ -271,7 +273,6 @@ if __name__=="__main__":
         sys.exit(0)
 
     #run sniffwave and consume output lines while it runs
-    print(cmd)
     intervalstart = unixstart
     try:
         p=Popen(cmd,stdout=PIPE)
@@ -357,3 +358,4 @@ if __name__=="__main__":
         sys.stdout.write(eew_stationreport_input(scnldict))
 
     sys.exit(0)
+
