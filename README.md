@@ -123,7 +123,9 @@ CAVE.ENZ.UO.-- (0x32 0x30) 0 i4 100 100.0 2018/06/06 06:33:48.97 (1528266828.968
 
 2. install the sniffwave_tally and cron_sniffwave_tally.sh on the earthworm machine you want to monitor.
 
-git clone https://github.com/pnsn/sniffwave_tally         (or just download from this webpage via green "clone or download" button)
+git clone https://github.com/pnsn/sniffwave_tally         
+
+(or just download a zip file from this webpage via green "clone or download" button)
 
 3. Edit the parameters in “cron_sniffwave_tally.sh” as needed.
 
