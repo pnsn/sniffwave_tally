@@ -37,6 +37,6 @@ if [ "x${EW_PARAMS}x" = "xx" ]; then
     exit 1
 fi
 
-cmd="${SCRIPT_DIR}/sniffwave_tally --bindir ${SNIFFWAVE_DIR} --outdir ${OUTDIR} --institution ${INSTITUTION} $RINGNAME wild wild wild wild $DURATION"
+cmd="${SCRIPT_DIR}/sniffwave_tally --bindir ${SNIFFWAVE_DIR} --outdir ${OUTDIR} --inst ${INSTITUTION} $RINGNAME wild wild wild wild $DURATION"
 echo "running: ${cmd}"
 `$cmd`
