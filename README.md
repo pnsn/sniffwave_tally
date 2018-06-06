@@ -112,7 +112,7 @@ INSTITUTION=PNSN              # an identifier for your institution
 ## Summary
 1. install a python script and a shell script on the earthworm machine you want to monitor
 2. edit the shell script as needed
-3. install a crontab to run sniffwave_tally
+3. install the crontab to run sniffwave_tally
 4. install a crontab to rsync daily files over to monitor@uw
 
 ## Preparation
