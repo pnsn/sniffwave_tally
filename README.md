@@ -151,5 +151,5 @@ LEVE.HNZ.UW.--,1528267215.82,1528267221.83,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
 
 6. Setup a cronjob to rsync your daily output csv files files to UW every night just after midnight.  Be sure the time is DURATION plus 1 minute.  E.g.:
 ```
-11 00 * * * rsync -av -e "ssh -p 7777” /your/local/dir/for/output/files/*.csv username@monitor.ess.washington.edu:/home/username/sniffwave_tally_files
+11 00 * * * rsync -av -e "ssh -p 7777” /your/local/dir/for/output/files/*.csv username@hostmachine.edu:/home/username/sniffwave_tally_files
 ```
