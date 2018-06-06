@@ -109,10 +109,44 @@ INSTITUTION=PNSN              # an identifier for your institution
 ```
 # Collecting latency information for eew_stationreport
 
-## Summary
-1. install a python script and a shell script on the earthworm machine you want to monitor
-2. edit the shell script as needed
-3. install the crontab to run sniffwave_tally
-4. install a crontab to rsync daily files over to monitor@uw
+## Step by step:
+1. test out sniffwave (for 1 sec) on your earthworm machine
+```
+[eworm@ewserver1 bin]$ sniffwave WAVE_RING wild wild wild wild 1
+Sniffing WAVE_RING for wild.wild.wild.wild
+sniffwave: inRing flushed 20012 packets of 8011336 bytes total.
+CAVE.HHN.UO.-- (0x32 0x30) 0 i4 100 100.0 2018/06/06 06:33:48.97 (1528266828.9684) 2018/06/06 06:33:49.96 (1528266829.9584) 0x20 0x20 i2 m71 t19 len 464 [D:2584.0s F: 0.0s]
+CAVE.HHE.UO.-- (0x32 0x30) 0 i4 100 100.0 2018/06/06 06:33:48.97 (1528266828.9684) 2018/06/06 06:33:49.96 (1528266829.9584) 0x20 0x20 i2 m71 t19 len 464 [D:2584.0s F: 0.0s]
+CAVE.ENZ.UO.-- (0x32 0x30) 0 i4 100 100.0 2018/06/06 06:33:48.97 (1528266828.9684) 2018/06/06 06:33:49.96 (1528266829.9584) 0x20 0x20 i2 m71 t19 len 464 [D:2584.0s F: 0.0s]
+...
+```
 
-## Preparation
+2. install the sniffwave_tally and cron_sniffwave_tally.sh on the earthworm machine you want to monitor.
+git clone https://github.com/pnsn/sniffwave_tally         (or just download from webpage)
+
+3. Edit the parameters in “cron_sniffwave_tally.sh” as needed.
+
+4. Give the cron script a test drive using a small duration, e.g. 2s.
+```
+[eworm@ewserver1 sniffwave_tally]$ ./cron_sniffwave_tally.sh 
+Running script: /home/eworm/bin/TEMP/sniffwave_tally/sniffwave_tally --bindir /home/eworm/bin --outdir /tmp --inst PNSN WAVE_RING wild wild wild wild 2
+writing  to  /tmp/2018-06-06_sniffwave_tally.PNSN.csv
+sniffwave command:  /home/eworm/bin/sniffwave WAVE_RING wild wild wild wild 2
+sniffwave: inRing flushed 17076 packets of 8089792 bytes total.
+[eworm@ewserver1 sniffwave_tally]$ 
+```
+The output should look something like:
+```
+[eworm@ewserver1 tmp]$ head 2018-06-06_sniffwave_tally.PNSN.csv
+# scnl,starttime,endtime,duration,npackets,nlate,ngap,gap_dur,noverlap,overlap_dur,n_oo,oo_dur
+IRON.HHN.UW.--,1528267214.97,1528267220.96,5.99000000954,6,0,0,0.0,0,0.0,0,0.0
+MAUP.HNN.UW.--,1528267216.2,1528267222.21,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
+BULL.HNN.UW.--,1528267216.73,1528267221.89,5.15500020981,6,0,0,0.0,0,0.0,0,0.0
+LEVE.HNZ.UW.--,1528267215.82,1528267221.83,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
+...
+```
+5. Delete the csv you just created, set the duration in the shell script to desired value, set up the cronjob e.g.:
+05,15,25,35,45,55 * * * * /full/path/to/cron_sniffwave_tally.sh > /tmp/cron_sniffwave_tally.out 2>&1
+
+6. setup a cronjob to rsync your daily output csv files files to UW every night just after midnight.  Be sure the time is DURATION plus 1 minute.
+11 00 * * * rsync -av -e "ssh -p 7777” /your/local/dir/for/output/files/*.csv username@monitor.ess.washington.edu:/home/username/sniffwave_tally_files
