@@ -273,6 +273,7 @@ if __name__=="__main__":
         sys.exit(0)
 
     #run sniffwave and consume output lines while it runs
+    print (cmd)
     intervalstart = unixstart
     try:
         p=Popen(cmd,stdout=PIPE)
