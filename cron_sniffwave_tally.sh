@@ -20,7 +20,7 @@ SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniff
 OUTDIR=/tmp                   # directory that output files from sniffwave_tally will go into
 RINGNAME=WAVE_RING            # earthworm wave ring to monitor
 DURATION=600                  # duration to run sniffwave for in s
-INSTITUTION=PNSN              # institution identifier for output files
+INSTITUTION=PNSN              # your institution's name to be appended to output filename
 
 # sniffwave needs to know the earthworm environment variables
 if [ -f ${EWENV} ]; then
