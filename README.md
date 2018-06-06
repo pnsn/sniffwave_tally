@@ -122,6 +122,7 @@ CAVE.ENZ.UO.-- (0x32 0x30) 0 i4 100 100.0 2018/06/06 06:33:48.97 (1528266828.968
 ```
 
 2. install the sniffwave_tally and cron_sniffwave_tally.sh on the earthworm machine you want to monitor.
+
 git clone https://github.com/pnsn/sniffwave_tally         (or just download from webpage)
 
 3. Edit the parameters in “cron_sniffwave_tally.sh” as needed.
@@ -137,7 +138,7 @@ sniffwave: inRing flushed 17076 packets of 8089792 bytes total.
 ```
 The output should look something like:
 ```
-[eworm@ewserver1 tmp]$ head 2018-06-06_sniffwave_tally.PNSN.csv
+[eworm@ewserver1 sniffwave_tally]$ head /tmp/2018-06-06_sniffwave_tally.PNSN.csv
 # scnl,starttime,endtime,duration,npackets,nlate,ngap,gap_dur,noverlap,overlap_dur,n_oo,oo_dur
 IRON.HHN.UW.--,1528267214.97,1528267220.96,5.99000000954,6,0,0,0.0,0,0.0,0,0.0
 MAUP.HNN.UW.--,1528267216.2,1528267222.21,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
@@ -148,5 +149,6 @@ LEVE.HNZ.UW.--,1528267215.82,1528267221.83,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
 5. Delete the csv you just created, set the duration in the shell script to desired value, set up the cronjob e.g.:
 05,15,25,35,45,55 * * * * /full/path/to/cron_sniffwave_tally.sh > /tmp/cron_sniffwave_tally.out 2>&1
 
-6. setup a cronjob to rsync your daily output csv files files to UW every night just after midnight.  Be sure the time is DURATION plus 1 minute.
+6. Setup a cronjob to rsync your daily output csv files files to UW every night just after midnight.  Be sure the time is DURATION plus 1 minute.
+
 11 00 * * * rsync -av -e "ssh -p 7777” /your/local/dir/for/output/files/*.csv username@monitor.ess.washington.edu:/home/username/sniffwave_tally_files
