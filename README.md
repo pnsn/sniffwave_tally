@@ -42,8 +42,8 @@ you want output files to go (default=/tmp)</dd>
 <dd>name of output file (default=YYYY-MM-dd_sniffwave_tally.csv, 
 where YYYY-MM-dd is today's UTC date)</dd>
 <dt>--institution institution</dt>
-<dd>name of institution identifier for output file.
- If no fname, i.e. default: YYYY-MM-dd_sniffwave_tally.institution.csv </dd>
+<dd>name of institution identifier to append to output file.
+ If fname not given default will be: YYYY-MM-dd_sniffwave_tally.INST.csv </dd>
 </dl>
 
 ## Output format
@@ -105,14 +105,14 @@ SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniff
 OUTDIR=/tmp                   # directory that output files from sniffwave_tally will go into
 RINGNAME=WAVE_RING            # earthworm wave ring to monitor
 DURATION=600                  # duration to run sniffwave for in s
+INSTITUTION=PNSN              # an identifier for your institution
 ```
 # Collecting latency information for eew_stationreport
 
 ## Summary
 1. install a python script and a shell script on the earthworm machine you want to monitor
 2. edit the shell script as needed
-3. install a crontab
-4. copy daily files over to monitor
+3. install a crontab to run sniffwave_tally
+4. install a crontab to rsync daily files over to monitor@uw
 
 ## Preparation
-
