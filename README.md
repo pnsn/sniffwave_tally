@@ -41,7 +41,7 @@ you want output files to go (default=/tmp)</dd>
 <dt>--fname filename</dt>
 <dd>name of output file (default=YYYY-MM-dd_sniffwave_tally.csv, 
 where YYYY-MM-dd is today's UTC date)</dd>
-<dt>--institution institution</dt>
+<dt>--inst institution</dt>
 <dd>name of institution identifier to append to output file.
  If fname not given default will be: YYYY-MM-dd_sniffwave_tally.INST.csv </dd>
 </dl>
