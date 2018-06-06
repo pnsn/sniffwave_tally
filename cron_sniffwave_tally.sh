@@ -20,6 +20,7 @@ SCRIPT_DIR=/home/eworm/bin    # directory containing the executable script sniff
 OUTDIR=/tmp                   # directory that output files from sniffwave_tally will go into
 RINGNAME=WAVE_RING            # earthworm wave ring to monitor
 DURATION=600                  # duration to run sniffwave for in s
+INSTITUTION=PNSN              # institution identifier for output files
 
 # sniffwave needs to know the earthworm environment variables
 if [ -f ${EWENV} ]; then
@@ -36,6 +37,6 @@ if [ "x${EW_PARAMS}x" = "xx" ]; then
     exit 1
 fi
 
-cmd="${SCRIPT_DIR}/sniffwave_tally --bindir ${SNIFFWAVE_DIR} --outdir ${OUTDIR} $RINGNAME wild wild wild wild $DURATION"
-echo "running: ${cmd}"
-`$cmd`
+cmd="${SCRIPT_DIR}/sniffwave_tally --bindir ${SNIFFWAVE_DIR} --outdir ${OUTDIR} --inst ${INSTITUTION} $RINGNAME wild wild wild wild $DURATION"
+echo "Running script: ${cmd}"
+$cmd
