@@ -151,8 +151,8 @@ LEVE.HNZ.UW.--,1528267215.82,1528267221.83,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
 5. Delete the csv you just created, set the duration in the shell script to desired value, set up the cronjob e.g.:
 05,15,25,35,45,55 * * * * /full/path/to/cron_sniffwave_tally.sh > /tmp/cron_sniffwave_tally.out 2>&1
 
-6. Setup a cronjob to rsync your daily output csv files files to UW every night just after midnight.  Be sure the time is DURATION plus 1 minute.  E.g.:
+6. Setup a cronjob to rsync your daily output csv files files to UW every night just after midnight (5pm Pacific).  Be sure the time is DURATION plus 1 minute.  E.g.:
 ```
-11 00 * * * rsync -av -e "ssh -p 7777” /myoutputdir/*.csv user@hostmachine.edu:/home/user/sniffwave_tally_files
+11 17 * * * rsync -av -e "ssh -p 7777” /myoutputdir/*.csv user@hostmachine.edu:/home/user/sniffwave_tally_files
 ```
 
