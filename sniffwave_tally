@@ -31,6 +31,8 @@ retime=re.compile(r'\(([0-9\.]+)\)')
 relat=re.compile(r'D:([\- 0-9\.]+)s')
 # scnl 4 fields separated by periods
 resncl=re.compile(r'^[A-Z0-9]+\.[A-Z0-9]+\.[A-Z0-9]+\.[A-Z0-9-]+')
+# size in bytes is preceded by len and consists of 4 integers: len 408
+rebytes=re.compile(r'len([\s]*[0-9]{1,4})')
 
 
 
@@ -52,8 +54,9 @@ def usage():
             --outdir output-dir:	full path to of directory to put output files in (default = /tmp)
             --fname  filename:		name of output file (default = YYYY-mm-dd_sniffwave_tally.csv, where YYYY-mm-dd is current UTC date)	
             --inst   institution:  institiution name to append to default output, e.g. YYYY-mm-dd_sniffwave_tally.PNSN.csv
+            --all               :  Add average and standard deviation of the measured latencies and packet lengths, as well as total number of bytes sent to the output.
 
-        Output:
+        Default Output (for eewreport):
             creates or appends to file the following fields:
             scnl:	STA.CHAN.NET.LOC
             starttime:	starttime of first packet in measurement window (epoch seconds) 
@@ -67,6 +70,11 @@ def usage():
             overlap_dur:total duration of overlapping packets
             n_oo:	number of out-of-order packets
             oo_dur:	total duration of out-of-order packets
+        Added with option all:
+            latency:    average latency (s), defined as feed latency + 0.5 packet length
+            latency_stdev:  approximate standard deviation of the latency
+            packet_lenght:  average packet length (s)
+            packet_stdev: approximate standard deviation of the packet length
     """         
     print(information)
     return
@@ -79,12 +87,13 @@ def parseline(s):
             s (string): output line from running 'sniffwave RING_NAME sta chan net loc duration'
 
         Returns: 
-            tuple (scnl, dt, starttime, endtime, latency) or None::
+            tuple (scnl, dt, starttime, endtime, latency, size) or None::
             0-scnl = STA.CHAN.NET.LOC
             1-dt = 1.0/sample_rate
             2-starttime = starttime of packet in unix epoch seconds
             3-endtime = endtime of packet in unix epoch seconds
             4-latency = difference in s between now and endtime of packet
+            5-size = length of packet in bytes as reported by sniffwave
 
     """
     scnl = s.lstrip().split(' ',1)[0]
@@ -99,10 +108,11 @@ def parseline(s):
         dt = 1.0/float(resrate.search(s).group(0)) # delta t is 1/sample_rate
         (starttime, endtime) = map(float,retime.findall(s))
         latency = float(relat.search(s).group(1))
+        size = int(rebytes.search(s).group(1))
     except Exception as e:
         print('could not parse\n{}: {}'.format(s,e))
         return None
-    return (scnl,dt,starttime,endtime,latency)
+    return (scnl,dt,starttime,endtime,latency,size)
 
 def average_stdev(x,x2,n):
     """
@@ -163,6 +173,46 @@ def eew_stationreport_input(scnldict):
         lines += line
     return header + lines
 
+def latency_report(scnldict):
+    """
+        Args:
+            fh: filename or open file handle
+            scnldict (dict): keyed on scnl, has to have nested dict keys:
+                             'starttime' : starttime of earliest packet in epoch seconds
+                             'endtime'   : endtime of last packet in epoch seconds
+                             'npackets'  : number of packets
+                             'nlate'     : number of bad packets (latency > 3.5s)
+                             'ngap'      : number of gaps between starttime and endtime
+                             'gap_dur'   : total duration of gaps in seconds
+                             'noverlap'  : number of overlaps between starttime and endtime
+                             'overlap_dur' : total duration of overlaps in seconds
+                             'n_oo'      : number of out-of-order packets
+                             'oo_dur'    : total duration of out-of-order packets
+                             'latency'   : average latency (in s,feedlatency + 0.5 packet_length)
+                             'latency_stdev' :  approximate standard deviation of latency
+                             'packet_length' :  average packet length (s)
+                             'packet_stdev': packet length stdev
+        Returns:
+            [string]: [scnl,starttime,endtime,duration,n,nlate,ngap,gap_dur]
+    """
+    sep = ","
+    key_list = ["starttime", "endtime", "duration", "npackets", "nlate", "ngap", \
+                "gap_dur", "noverlap", "overlap_dur", "n_oo", "oo_dur", "latency", "latency_stdev", \
+                "packet_length", "packet_stdev", "bytes"]
+    header_list = ["# scnl"]
+    header_list.extend(key_list)
+    header = sep.join(header_list) + "\n"
+    lines = ""
+    for scnl in scnldict:
+        scnldict[scnl]["duration"] = scnldict[scnl]["endtime"] - scnldict[scnl]["starttime"]
+        line = scnl
+        for k in key_list:
+            line += sep
+            line += str(scnldict[scnl][k])
+        line += "\n"
+        lines += line
+    return header + lines
+
 def getStationDict(url='http://pnsn.org/stations.json'):
     '''gets station list from PNSN json feed and puts data into
     dictionary indexed on station and network name.
@@ -200,6 +250,8 @@ if __name__=="__main__":
             --fname(string): name of output-file, if omitted, output goes to outdir/YYYY-mm-dd_sniffwave_tally.csv
             --outdir(string): name of output directory, default = /tmp
             --bindir(string): full path to directory containing sniffwave executable (default = /home/eworm/bin)
+            --inst(string): institution name
+            --all: add average latency,stdev latency, average packet lenght, stdev packet length to output.
         Returns:
             int: status
 
@@ -208,9 +260,12 @@ if __name__=="__main__":
 
         writes the following metrics to file:
              scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur
+        with option --all:
+             scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur,latency_ave,latency_stdev,packet_length_ave,packet_length_stdev
   
     """
     latlon=False
+    output_all=False
     seconds=None # duration of running sniffwave or interval of which output is written
     bindir="/home/eworm/bin" # path to sniffwave
     outdir="/tmp" # path to output directory
@@ -256,6 +311,9 @@ if __name__=="__main__":
         if '--latlon' in sys.argv:  #add lat-lon to output
             latlon=getStationDict()
             sys.argv.remove('--latlon')
+        if '--all' in sys.argv:  #add latency and packet_length to output
+            output_all = True
+            sys.argv.remove('--all')
         larg=sys.argv[-1]
         if larg.isdigit():
             seconds=int(larg)
@@ -287,7 +345,7 @@ if __name__=="__main__":
         for line in output:
             p=parseline(line)
             if p:
-                (scnl,dt,starttime,endtime,lat)=p
+                (scnl,dt,starttime,endtime,lat,size)=p
                 if endtime > intervalstart or endtime <= intervalstart: 
                     packlen = endtime - starttime
                     latency = lat + 0.5*packlen
@@ -296,6 +354,7 @@ if __name__=="__main__":
                         scnldict[scnl]['packet_squared'] += packlen*packlen
                         scnldict[scnl]['latency'] += latency
                         scnldict[scnl]['latency_squared'] += latency*latency
+                        scnldict[scnl]['bytes'] += size
                         scnldict[scnl]['npackets']+=1
                         if latency > LATENCY_THRESHOLD:
                             scnldict[scnl]['nlate'] += 1
@@ -304,8 +363,7 @@ if __name__=="__main__":
                             scnldict[scnl]['ngap'] += 1
                             scnldict[scnl]['gap_dur'] += (starttime-(scnldict[scnl]['prev_endtime']+dt))
                         if starttime - (scnldict[scnl]['prev_endtime'] + dt) < -1*TOLERANCE and \
-                           starttime >= scnldict[scnl]['prev_starttime']:
-                            # overlap!
+                           starttime >= scnldict[scnl]['prev_starttime']: # overlap!
                             scnldict[scnl]['noverlap'] += 1
                             scnldict[scnl]['overlap_dur'] += (starttime-(scnldict[scnl]['prev_endtime']+dt))
                         if endtime < scnldict[scnl]['prev_starttime']:
@@ -332,6 +390,7 @@ if __name__=="__main__":
                                         'packet_squared':packlen*packlen,
                                         'latency':latency,
                                         'latency_squared':latency*latency,
+                                        'bytes' : 0,
                                         'npackets':1}
                         # check if first packet is late
                         if latency > LATENCY_THRESHOLD:
@@ -355,9 +414,15 @@ if __name__=="__main__":
     # write to file, create file or append
     if filename:
         with open(filename,'a+') as fh:
-            fh.write(eew_stationreport_input(scnldict))
+            if output_all:
+                fh.write(latency_report(scnldict))
+            else:
+                fh.write(eew_stationreport_input(scnldict))
     else:
-        sys.stdout.write(eew_stationreport_input(scnldict))
+        if output_all:
+            sys.stdout.write(latency_report(scnldict))
+        else:
+            sys.stdout.write(eew_stationreport_input(scnldict))
 
     sys.exit(0)
 
