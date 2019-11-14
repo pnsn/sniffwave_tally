@@ -44,6 +44,8 @@ where YYYY-MM-dd is today's UTC date)</dd>
 <dt>--inst institution</dt>
 <dd>name of institution identifier to append to output file.
  If fname not given default will be: YYYY-MM-dd_sniffwave_tally.INST.csv </dd>
+<dt>--all</dt>
+<dd>Add average and standard deviation of the measured latencies and packet lengths, as well as total number of bytes sent to the output.</dd>
 </dl>
 
 ## Output format
@@ -132,7 +134,7 @@ CAVE.ENZ.UO.-- (0x32 0x30) 0 i4 100 100.0 2018/06/06 06:33:48.97 (1528266828.968
 4. Give the cron script a test drive using a small duration, e.g. 2s.
 ```
 [eworm@ewserver1 sniffwave_tally]$ ./cron_sniffwave_tally.sh 
-Running script: /home/eworm/bin/TEMP/sniffwave_tally/sniffwave_tally --bindir /home/eworm/bin --outdir /tmp --inst PNSN WAVE_RING wild wild wild wild 2
+Running script: /home/eworm/bin/TEMP/sniffwave_tally/sniffwave_tally --all --bindir /home/eworm/bin --outdir /tmp --inst PNSN WAVE_RING wild wild wild wild 2
 writing  to  /tmp/2018-06-06_sniffwave_tally.PNSN.csv
 sniffwave command:  /home/eworm/bin/sniffwave WAVE_RING wild wild wild wild 2
 sniffwave: inRing flushed 17076 packets of 8089792 bytes total.
@@ -146,6 +148,15 @@ IRON.HHN.UW.--,1528267214.97,1528267220.96,5.99000000954,6,0,0,0.0,0,0.0,0,0.0
 MAUP.HNN.UW.--,1528267216.2,1528267222.21,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
 BULL.HNN.UW.--,1528267216.73,1528267221.89,5.15500020981,6,0,0,0.0,0,0.0,0,0.0
 LEVE.HNZ.UW.--,1528267215.82,1528267221.83,6.01499986649,7,0,0,0.0,0,0.0,0,0.0
+...
+```
+With the --all option:
+```
+#scnl,starttime,endtime,duration,npackets,nlate,ngap,gap_dur,noverlap,overlap_dur,n_oo,oo_dur,latency,latency_stdev,packet_length,packet_stdev,bytes
+SYMB.HNE.CN.--,1573603747.49,1573604349.0,601.50999999,146,114,0,0.0,0,0.0,0,0.0,4.09815068555,1.42174442454,4.11000000124,8.42936970218e-08,248240
+WPB.HNZ.CN.--,1573603748.2,1573604349.71,601.50999999,146,104,0,0.0,0,0.0,0,0.0,3.75842465734,0.372774567952,4.10999999961,0.0,248240
+LRIV.ENZ.UW.--,1573603750.68,1573604350.67,599.99000001,600,0,0,0.0,0,0.0,0,0.0,1.3828333381,0.0806348077585,0.990000009537,0.0,277936
+LUMI.ENE.UW.--,1573603750.68,1573604350.67,599.99000001,600,0,0,0.0,0,0.0,0,0.0,1.44316667144,0.0852250289267,0.990000009537,0.0,277936
 ...
 ```
 5. Delete the csv you just created, set the duration in the shell script to desired value, set up the cronjob e.g.:
