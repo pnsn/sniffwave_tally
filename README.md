@@ -81,6 +81,15 @@ only one output format, a comma-separated-values (csv) file with the following f
 <dd>number of out-of-order packets</dd>
 <dt>oo_dur</dt>
 <dd>total duration of out-of-order packets, in seconds</dd>
+<dt>Added with option --all:</dt>
+<dt>latency</dt>
+<dd>average latency (s), defined as feed latency + half-packet length</dd>
+<dt>latency_stdev</dt>
+<dd>approximate standard deviation of the latency</dd>
+<dt>packet_length</dt>
+<dd>average packet length (s)</dd>
+<dt>packet_stdev</dt>
+<dd>approximate standard deviation of the packet length</dd>
 </dl>
 
 # cron_sniffwave_tally.sh
