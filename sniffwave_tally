@@ -294,7 +294,7 @@ def send_to_squac(scnldict, prefix):
 
     gap_penalty = 30 # seconds
     # let's automatically add scnl's that are in SQUAC but not yet part of the group to the channel group
-    channel_group = "PNSN Continuous Data"
+    #channel_group = "PNSN Continuous Data"
     metric_names = [prefix + "_ring_latency", prefix + "_ring_packet_length", 
                     prefix + "_ring_gaps_per_hour", prefix + "_ring_latency_le_3.5",
                     prefix + "_ring_completeness", prefix + "_ring_completeness_incl_gap_penalty"]
@@ -302,11 +302,11 @@ def send_to_squac(scnldict, prefix):
     metric_names_string = ",".join(metric_names)
     metrics = client.v1_0_measurement_metrics_list(name=metric_names_string)
     channels = client.v1_0_nslc_channels_list()
-    channel_groups = client.v1_0_nslc_groups_list(name=channel_group)
+    #channel_groups = client.v1_0_nslc_groups_list(name=channel_group)
     # create lookup maps from metric name/scnl to database IDs
     metric_map = make_metric_map(metrics)
     channel_map = make_channel_map(channels)
-    channel_group_map = make_channel_group_map(channel_groups)
+    #channel_group_map = make_channel_group_map(channel_groups)
     if len(metric_map) == 0:
         print("Warning, no metric ids in SQUAC for the requested metrics, nothing to do")
         return None, None
