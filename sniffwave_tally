@@ -326,7 +326,7 @@ def send_to_squac(scnldict, prefix):
             for m_name in metric_map:
                 if '3.5' in m_name:
                     # precent packets not late
-                    value = 100 * (scnldict[scnl]['npackets']-scnldict[scnl]['nlate'])/scnldict['npackets']
+                    value = 100 * (scnldict[scnl]['npackets']-scnldict[scnl]['nlate'])/scnldict[scnl]['npackets']
                 elif not '3.5' in m_name and 'latency' in m_name:
                     # average data latency
                     value = scnldict[scnl]['latency']
