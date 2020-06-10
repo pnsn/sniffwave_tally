@@ -337,15 +337,15 @@ def send_to_squac(scnldict, prefix):
                     # average packet length in s
                     value = scnldict[scnl]['packet_length']
                 elif "completeness" in m_name and "penalty" in m_name:
-                    # pct of timewindow that has data.
-                    value = 100 * (scnldict[scnl]['duration']-scnldict[scnl]['gap_dur'])/scnldict[scnl]['duration']
-                elif 'completeness' in m_name:
-                    #  pct of timewindow that has data minus ngaps*gap_penalty.
+                    #  pct of timewindow that has data minus ngap*gap_penalty.
                     value = 100 * ( \
                         scnldict[scnl]['duration'] - \
                         scnldict[scnl]['gap_dur'] - \
-                        gap_penalty * scnldict[scnl]['ngaps']\
+                        gap_penalty * scnldict[scnl]['ngap']\
                         ) / scnldict[scnl]['duration']
+                elif 'completeness' in m_name:
+                    # pct of timewindow that has data.
+                    value = 100 * (scnldict[scnl]['duration']-scnldict[scnl]['gap_dur'])/scnldict[scnl]['duration']
                 measurement = WriteOnlyMeasurementSerializer(
                     metric=metric_map[m_name],
                     channel=channel_map[scnl],
