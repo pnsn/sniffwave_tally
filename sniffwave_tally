@@ -325,7 +325,7 @@ def send_to_squac(scnldict, prefix):
             # loop over the metrics we are harvesting
             for m_name in metric_map:
                 if '3.5' in m_name:
-                    # precent packets not late
+                    # percent packets not late
                     value = 100 * (scnldict[scnl]['npackets']-scnldict[scnl]['nlate'])/scnldict[scnl]['npackets']
                 elif not '3.5' in m_name and 'latency' in m_name:
                     # average data latency

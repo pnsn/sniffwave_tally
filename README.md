@@ -2,7 +2,7 @@
 python script and bash wrapper to tally output from earthworm's sniffwave.
 
 # Synopsis
- sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir]
+ sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--squac prefix] [--all]
 ring_name sta chan net loc duration
 
 # Description
