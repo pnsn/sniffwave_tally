@@ -3,17 +3,31 @@
 from __future__ import print_function
 
 # sniffwave_tally: Renate Hartog, PNSN May 2018
-# 
+#
 # wrapper for sniffwave to tally late packets and gaps
 # Largely based on latte.py: Victor Kress, PNSN 2014/9/16
 # $Id$
 
+import os
 import sys
 import time
 import re
 import math
 from subprocess import Popen,PIPE
 from datetime import datetime
+
+try:
+    from squacapi_client.models.write_only_measurement_serializer \
+    import WriteOnlyMeasurementSerializer
+
+    from squacapi_client.pnsn_utilities \
+    import get_client, make_channel_map, make_metric_map, perform_bulk_create
+
+    no_squacapi = False
+except Exception as e:
+    print("Info: squacapi_client not available, cannot use --squac option")
+    no_squacapi = True
+
 
 LATENCY_THRESHOLD = 3.5 # good latency <= 3.5s
 TOLERANCE = 1e-4 # tolerance when comparing begin and end time of packets to determine gaps and overlaps
@@ -41,7 +55,7 @@ def usage():
 
     information = \
     """
-        Usage: sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution_id ] ring_name sta chan net loc duration
+        Usage: sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution_id ] [--squac prefix] ring_name sta chan net loc duration
 
         where:
             ring_name:	name of earthworm ring to sniff
@@ -52,14 +66,19 @@ def usage():
         options:
             --bindir sniffwave-bin-dir:	full path of directory containing sniffwave executable (default = /home/eworm/bin)
             --outdir output-dir:	full path to of directory to put output files in (default = /tmp)
-            --fname  filename:		name of output file (default = YYYY-mm-dd_sniffwave_tally.csv, where YYYY-mm-dd is current UTC date)	
+            --fname  filename:		name of output file (default = YYYY-mm-dd_sniffwave_tally.csv, where YYYY-mm-dd is current UTC date)
             --inst   institution:  institiution name to append to default output, e.g. YYYY-mm-dd_sniffwave_tally.PNSN.csv
+            --squac  prefix: post latency and gaps measurements to squac, prefix will be prepended to the different metric names.
+                     prerequisites: squac api user with contributor privileges and metric already has to exist in the SQUAC database. 
+                     Measurements for metrics that are not yet defined in SQUAC will not be sent.  
+                     metric names: prefix_ring_latency, prefix_ring_packet_length, prefix_ring_gaps_per_hour, prefix_ring_latency_le_3.5,
+                                   prefix_ring_completeness, prefix_ring_completeness_incl_gap_penalty.
             --all               :  Add average and standard deviation of the measured latencies and packet lengths, as well as total number of bytes sent to the output.
 
         Default Output (for eewreport):
             creates or appends to file the following fields:
             scnl:	STA.CHAN.NET.LOC
-            starttime:	starttime of first packet in measurement window (epoch seconds) 
+            starttime:	starttime of first packet in measurement window (epoch seconds)
             endtime:	endtime of last packet in measurement window (epoch seconds)
             duration:	total duration of measurement window (seconds)
             npackets:	total number of packets seen during measurement window
@@ -75,7 +94,7 @@ def usage():
             latency_stdev:  approximate standard deviation of the latency
             packet_lenght:  average packet length (s)
             packet_stdev: approximate standard deviation of the packet length
-    """         
+    """
     print(information)
     return
 
@@ -86,7 +105,7 @@ def parseline(s):
         Args:
             s (string): output line from running 'sniffwave RING_NAME sta chan net loc duration'
 
-        Returns: 
+        Returns:
             tuple (scnl, dt, starttime, endtime, latency, size) or None::
             0-scnl = STA.CHAN.NET.LOC
             1-dt = 1.0/sample_rate
@@ -96,7 +115,11 @@ def parseline(s):
             5-size = length of packet in bytes as reported by sniffwave
 
     """
+    if (sys.version_info > (3, 0)):
+        s = s.decode('utf-8')
+
     scnl = s.lstrip().split(' ',1)[0]
+
     if s.rstrip()[-1] != ']':
         return None
     if not resncl.match(scnl): #line does not start with valid scnl
@@ -120,7 +143,7 @@ def average_stdev(x,x2,n):
             stdev = sqrt( (x2)/n-(x/n)**2 )
 
         Args:
-            x (float): summation of all values         
+            x (float): summation of all values
             x2 (float): summation of all squared values
             n (integer): number of values
 
@@ -136,12 +159,13 @@ def average_stdev(x,x2,n):
     else:
         stdev = 0.
     return x/n, stdev
-    
+
 
 def eew_stationreport_input(scnldict):
     """
+        Creates the minimal csv input to be used by eew_stationreport.
+        See https://github.com/pnsn/station_metrics.
         Args:
-            fh: filename or open file handle
             scnldict (dict): keyed on scnl, has to have nested dict keys:
                              'starttime' : starttime of earliest packet in epoch seconds
                              'endtime'   : endtime of last packet in epoch seconds
@@ -154,7 +178,8 @@ def eew_stationreport_input(scnldict):
                              'n_oo'      : number of out-of-order packets
                              'oo_dur'    : total duration of out-of-order packets
         Returns:
-            [string]: [scnl,starttime,endtime,duration,n,nlate,ngap,gap_dur]
+            [string]: [scnl,starttime,endtime,duration,n,nlate,ngap,gap_dur,
+                       noverlap,overlap_dur,n_oo,oo_dur]
     """
     sep = ","
     key_list = ["starttime", "endtime", "duration", "npackets", "nlate", "ngap", \
@@ -175,8 +200,11 @@ def eew_stationreport_input(scnldict):
 
 def latency_report(scnldict):
     """
+        Creates csv input that can be used by eew_stationreport but has the
+        additional metrics latency, latency_stdev, packet_length, and
+        packet_stdev.
+        See https://github.com/pnsn/station_metrics.
         Args:
-            fh: filename or open file handle
             scnldict (dict): keyed on scnl, has to have nested dict keys:
                              'starttime' : starttime of earliest packet in epoch seconds
                              'endtime'   : endtime of last packet in epoch seconds
@@ -192,8 +220,11 @@ def latency_report(scnldict):
                              'latency_stdev' :  approximate standard deviation of latency
                              'packet_length' :  average packet length (s)
                              'packet_stdev': packet length stdev
+                             'bytes': size of data in bytes
         Returns:
-            [string]: [scnl,starttime,endtime,duration,n,nlate,ngap,gap_dur]
+            [string]: [scnl,starttime,endtime,duration,n,nlate,ngap,gap_dur,
+            noverlap,overlap_dur,n_oo,oo_dur,latency, latency_stdev,
+            packet_length, packet_stdev, bytes]
     """
     sep = ","
     key_list = ["starttime", "endtime", "duration", "npackets", "nlate", "ngap", \
@@ -213,6 +244,123 @@ def latency_report(scnldict):
         lines += line
     return header + lines
 
+def send_to_squac(scnldict, prefix):
+    """
+        Sends the measurements for the following metrics to SQUAC api (requires
+        a SQUAC api user account with contributor privileges):
+
+        prefix_ring_latency:  average data latency in s.
+        prefix_ring_packet_length: average packet length during measurement window
+        prefix_ring_gaps_per_hour: 3600 * (number of gaps/number of seconds in measurement window)
+        prefix_ring_latency_le_3.5: percentage of packets with (data latency+0.5*packet_length) <= 3.5s
+        prefix_ring_completeness: percentage completeness of the data as measured during this time window
+        prefix_ring_completeness_incl_gap_penalty: percentage completeness, adding extra 30s for each gap.
+
+        Only measurements for metrics that have already been defined in SQUAC will be sent.
+        
+        Args:
+            scnldict (dict): keyed on scnl, has to have nested dict keys:
+                             'starttime' : starttime of earliest packet in epoch seconds
+                             'endtime'   : endtime of last packet in epoch seconds
+                             'npackets'  : number of packets
+                             'nlate'     : number of bad packets (latency > 3.5s)
+                             'ngap'      : number of gaps between starttime and endtime
+                             'gap_dur'   : total duration of gaps in seconds
+                             'noverlap'  : number of overlaps between starttime and endtime
+                             'overlap_dur' : total duration of overlaps in seconds
+                             'n_oo'      : number of out-of-order packets
+                             'oo_dur'    : total duration of out-of-order packets
+                             'latency'   : average latency (in s,feedlatency + 0.5 packet_length)
+                             'latency_stdev' :  approximate standard deviation of latency
+                             'packet_length' :  average packet length (s)
+                             'packet_stdev': packet length stdev
+            prefix (string): string to prepend to metrics name.
+        Returns:
+            response: blah blah
+    """
+    # LOCAL, STAGING, PRODUCTION
+    ENVIRONMENT = 'STAGING'
+
+    try:
+        USER = os.environ['SQUACAPI_USER']
+        PASSWORD = os.environ['SQUACAPI_PASSWD']
+        HOST = os.environ[ENVIRONMENT + '_HOST']
+
+    except KeyError:
+        sys.exit("Requires ENV vars SQUACAPI_USER, SQUACAPI_PASSWD and HOST")
+
+    # create API client and retrieve foreign keys from the SQUAC database
+    client = get_client(USER, PASSWORD, HOST)
+
+    gap_penalty = 30 # seconds
+    # let's automatically add scnl's that are in SQUAC but not yet part of the group to the channel group
+    #channel_group = "PNSN Continuous Data"
+    metric_names = [prefix + "_ring_latency", prefix + "_ring_packet_length", 
+                    prefix + "_ring_gaps_per_hour", prefix + "_ring_latency_le_3.5",
+                    prefix + "_ring_completeness", prefix + "_ring_completeness_incl_gap_penalty"]
+
+    metric_names_string = ",".join(metric_names)
+    metrics = client.v1_0_measurement_metrics_list(name=metric_names_string)
+    channels = client.v1_0_nslc_channels_list()
+    #channel_groups = client.v1_0_nslc_groups_list(name=channel_group)
+    # create lookup maps from metric name/scnl to database IDs
+    metric_map = make_metric_map(metrics)
+    channel_map = make_channel_map(channels)
+    #channel_group_map = make_channel_group_map(channel_groups)
+    if len(metric_map) == 0:
+        print("Warning, no metric ids in SQUAC for the requested metrics, nothing to do")
+        return None, None
+    if len(channel_map) == 0:
+        print("Warning, no channel ids in SQUAC, nothing to do")
+        return None, None
+    print("Loading the following metrics:")
+    for m in metric_map:
+        print("\t{}\n".format(m))
+
+    measurements = []
+    for scnl in scnldict:
+        if scnl in channel_map:
+            # Add to channel_group if it isn't in there yet
+            # TO DO
+            # loop over the metrics we are harvesting
+            for m_name in metric_map:
+                if '3.5' in m_name:
+                    # percent packets not late
+                    value = 100 * (scnldict[scnl]['npackets']-scnldict[scnl]['nlate'])/scnldict[scnl]['npackets']
+                elif not '3.5' in m_name and 'latency' in m_name:
+                    # average data latency
+                    value = scnldict[scnl]['latency']
+                elif 'gaps' in m_name:
+                    # gaps in units count per hour
+                    value = 3600. * (scnldict[scnl]['ngap']/scnldict[scnl]['duration'])
+                elif 'packet_length' in m_name:
+                    # average packet length in s
+                    value = scnldict[scnl]['packet_length']
+                elif "completeness" in m_name and "penalty" in m_name:
+                    #  pct of timewindow that has data minus ngap*gap_penalty.
+                    value = 100 * ( \
+                        scnldict[scnl]['duration'] - \
+                        scnldict[scnl]['gap_dur'] - \
+                        gap_penalty * scnldict[scnl]['ngap']\
+                        ) / scnldict[scnl]['duration']
+                elif 'completeness' in m_name:
+                    # pct of timewindow that has data.
+                    value = 100 * (scnldict[scnl]['duration']-scnldict[scnl]['gap_dur'])/scnldict[scnl]['duration']
+                measurement = WriteOnlyMeasurementSerializer(
+                    metric=metric_map[m_name],
+                    channel=channel_map[scnl],
+                    value=value,
+                    starttime=datetime.utcfromtimestamp(scnldict[scnl]['starttime']),
+                    endtime=datetime.utcfromtimestamp(scnldict[scnl]['endtime'])
+                )
+                measurements.append(measurement)
+        else:
+            print("Channel {} not in SQUAC yet".format(scnl))
+
+    response, errors = perform_bulk_create(measurements, client)
+    return response, errors
+
+
 def getStationDict(url='http://pnsn.org/stations.json'):
     '''gets station list from PNSN json feed and puts data into
     dictionary indexed on station and network name.
@@ -229,7 +377,7 @@ def getStationDict(url='http://pnsn.org/stations.json'):
     d=json.loads(l[0],'UTF-8')
     stadict={}
     for s in d: #put into simpler station-keyed dictionary
-        if not stadict.has_key(s['sta']):
+        if not s['sta'] in stadict:
             stadict[s['sta']]={}
         stadict[s['sta']][s['net']]={'elev':float(s['elev']),
                                      'lat':float(s['lat']),
@@ -252,6 +400,7 @@ if __name__=="__main__":
             --bindir(string): full path to directory containing sniffwave executable (default = /home/eworm/bin)
             --inst(string): institution name
             --all: add average latency,stdev latency, average packet lenght, stdev packet length to output.
+            --squac(string): prefix for ring_latency and ring_gaps metrics for squac
         Returns:
             int: status
 
@@ -262,10 +411,12 @@ if __name__=="__main__":
              scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur
         with option --all:
              scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur,latency_ave,latency_stdev,packet_length_ave,packet_length_stdev
-  
+
     """
     latlon=False
     output_all=False
+    to_squac=False
+    metric_prefix=""
     seconds=None # duration of running sniffwave or interval of which output is written
     bindir="/home/eworm/bin" # path to sniffwave
     outdir="/tmp" # path to output directory
@@ -308,6 +459,15 @@ if __name__=="__main__":
             sys.argv.pop(index)
         except:
             pass # keep default
+        try:
+            index = sys.argv.index('--squac')
+            metric_prefix = sys.argv[index+1]
+            to_squac=True
+            output_all = True
+            sys.argv.remove('--squac')
+            sys.argv.pop(index)
+        except:
+            pass #  keep default
         if '--latlon' in sys.argv:  #add lat-lon to output
             latlon=getStationDict()
             sys.argv.remove('--latlon')
@@ -330,6 +490,13 @@ if __name__=="__main__":
         usage()
         sys.exit(0)
 
+    if to_squac and not output_all:
+        print("Error, to send metrics to SQUAC also specify the --all flag")
+        sys.exit(1)
+    if to_squac and no_squacapi:
+        print("Error, squacapi_client not available")
+        sys.exit(1)
+
     #run sniffwave and consume output lines while it runs
     scmd = ",".join(cmd).replace(",", " ")
     print("sniffwave command:  " + scmd)
@@ -346,10 +513,10 @@ if __name__=="__main__":
             p=parseline(line)
             if p:
                 (scnl,dt,starttime,endtime,lat,size)=p
-                if endtime > intervalstart or endtime <= intervalstart: 
+                if endtime > intervalstart or endtime <= intervalstart:
                     packlen = endtime - starttime
                     latency = lat + 0.5*packlen
-                    if scnldict.has_key(scnl):
+                    if scnl in scnldict:
                         scnldict[scnl]['packet_length'] += packlen
                         scnldict[scnl]['packet_squared'] += packlen*packlen
                         scnldict[scnl]['latency'] += latency
@@ -424,5 +591,11 @@ if __name__=="__main__":
         else:
             sys.stdout.write(eew_stationreport_input(scnldict))
 
-    sys.exit(0)
+    if to_squac:
+        res, err = send_to_squac(scnldict,metric_prefix)
+        if res:
+            print("Sent {} measurements to SQUAC, errors: {}".format(len(res), err))
+        else:
+            print("Nothing sent to SQUAC")
 
+    sys.exit(0)

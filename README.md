@@ -2,19 +2,18 @@
 python script and bash wrapper to tally output from earthworm's sniffwave.
 
 # Synopsis
- sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir]
+ sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--squac prefix] [--all]
 ring_name sta chan net loc duration
 
 # Description
-sniffwave_tally does what the name implies, it runs the earthworm program sniffwave for a 
-specified duration and writes various stats to a file. Currently it only outputs fields 
-needed by the eew_stationreport script (https://github.com/pnsn/station-monitor), however, 
-it also calculates the average latency and standard deviation.  The latency it outputs 
-is defined as the time difference between now and the end of a packet, plus half the 
-duration of the packet.
+sniffwave_tally does what the name implies, it runs the earthworm program sniffwave for a
+specified duration and writes various stats to a file. Currently it only outputs fields
+needed by the eew_stationreport script (https://github.com/pnsn/station-monitor), however,
+it also calculates the average data latency in s and standard deviation and the average packet length in s and standard deviation. The latency it outputs
+is defined as the time difference between now (current time in sniffwave) and the end of a packet.
 
 ## Arguments
-*Required:* 
+*Required:*
 <dl>
 <dt>RING_NAME</dt>
 <dd>name of the earthworm ring you want to sniff</dd>
@@ -33,28 +32,33 @@ duration of the packet.
 *Optional:*
 <dl>
 <dt>--bindir dirname</dt>
-<dd>where dirname is the full absolute path to the directory containing 
+<dd>where dirname is the full absolute path to the directory containing
 the sniffwave binary (not needed if sniffwave in PATH)</dd>
 <dt>--outdir dirname</dt>
-<dd>where dirname is the full absolute path to the directory that 
+<dd>where dirname is the full absolute path to the directory that
 you want output files to go (default=/tmp)</dd>
 <dt>--fname filename</dt>
-<dd>name of output file (default=YYYY-MM-dd_sniffwave_tally.csv, 
+<dd>name of output file (default=YYYY-MM-dd_sniffwave_tally.csv,
 where YYYY-MM-dd is today's UTC date)</dd>
 <dt>--inst institution</dt>
 <dd>name of institution identifier to append to output file.
  If fname not given default will be: YYYY-MM-dd_sniffwave_tally.INST.csv </dd>
+ <dt>--squac prefix</dt>
+ Try to send measurements to the SQUAC api as well. Requires a SQUAC user account
+ with contributor privileges.
+ <dt>--latlon</dt>
+ <dd>Retrieve station latitude and longitude from http://pnsn.org/stations.json</dd>
 <dt>--all</dt>
 <dd>Add average and standard deviation of the measured latencies and packet lengths, as well as total number of bytes sent to the output.</dd>
 </dl>
 
 ## Output format
-sniffwave_tally appends output to a file (it creates the file if it doesn't exist yet). 
-By default the file is named `/tmp/YYYY-MM-dd_sniffwave_tally.csv`, but you can specify a 
+sniffwave_tally appends output to a file (it creates the file if it doesn't exist yet).
+By default the file is named `/tmp/YYYY-MM-dd_sniffwave_tally.csv`, but you can specify a
 different output directory using the --outdir flag. Using the --institution flag will make
-the default filename `/tmp/YYYY-MM-dd_sniffwave_tally.institution.csv` Multiple runs on 
-the same UTC day get concatenated into the same `YYYY-MM-dd_sniffwave_tally.csv` file, 
-unless a different filename is specified using the --fname option. Currently there is 
+the default filename `/tmp/YYYY-MM-dd_sniffwave_tally.institution.csv` Multiple runs on
+the same UTC day get concatenated into the same `YYYY-MM-dd_sniffwave_tally.csv` file,
+unless a different filename is specified using the --fname option. Currently there is
 only one output format, a comma-separated-values (csv) file with the following fields:
 <dl>
 <dt>scnl</dt>
@@ -83,7 +87,8 @@ only one output format, a comma-separated-values (csv) file with the following f
 <dd>total duration of out-of-order packets, in seconds</dd>
 <dt>Added with option --all:</dt>
 <dt>latency</dt>
-<dd>average latency (s), defined as feed latency + half-packet length</dd>
+<dd>average data latency (s), defined as
+time of packet arrival and reading from ring - time of last sample in most recent packet</dd>
 <dt>latency_stdev</dt>
 <dd>approximate standard deviation of the latency</dd>
 <dt>packet_length</dt>
@@ -102,11 +107,11 @@ Shell-script wrapper to run sniffwave_tally as a cron-job.
 # e.g.
 # 05,15,25,35,45,55 * * * * /full/path/to/cron_sniffwave_tally.sh > /tmp/cron_sniffwave_tally.out 2>&1
 #
-# WARNING: this setup appends the output from different sniffwave_tally runs on the same UTC date 
-# to the same file, so do not let the sniffwave runs overlap because the output might get jumbled 
+# WARNING: this setup appends the output from different sniffwave_tally runs on the same UTC date
+# to the same file, so do not let the sniffwave runs overlap because the output might get jumbled
 # up in the output files.  I.e. don't run this with DURATION = 600 (10 minutes) every 5 minutes.
 # If you run this every 10 minutes with a DURATION = 300 (5 minutes), you get numbers relevant for
-# only half the time duration (i.e. 6 times 5 minutes, 30 minutes monitored each hour) but sampled 
+# only half the time duration (i.e. 6 times 5 minutes, 30 minutes monitored each hour) but sampled
 # over the full hour.
 
 # modify these parameters as needed for your system
@@ -142,12 +147,12 @@ CAVE.ENZ.UO.-- (0x32 0x30) 0 i4 100 100.0 2018/06/06 06:33:48.97 (1528266828.968
 
 4. Give the cron script a test drive using a small duration, e.g. 2s.
 ```
-[eworm@ewserver1 sniffwave_tally]$ ./cron_sniffwave_tally.sh 
+[eworm@ewserver1 sniffwave_tally]$ ./cron_sniffwave_tally.sh
 Running script: /home/eworm/bin/TEMP/sniffwave_tally/sniffwave_tally --all --bindir /home/eworm/bin --outdir /tmp --inst PNSN WAVE_RING wild wild wild wild 2
 writing  to  /tmp/2018-06-06_sniffwave_tally.PNSN.csv
 sniffwave command:  /home/eworm/bin/sniffwave WAVE_RING wild wild wild wild 2
 sniffwave: inRing flushed 17076 packets of 8089792 bytes total.
-[eworm@ewserver1 sniffwave_tally]$ 
+[eworm@ewserver1 sniffwave_tally]$
 ```
 The output should look something like:
 ```
@@ -175,4 +180,3 @@ LUMI.ENE.UW.--,1573603750.68,1573604350.67,599.99000001,600,0,0,0.0,0,0.0,0,0.0,
 ```
 11 17 * * * rsync -av -e "ssh -p 7777” /myoutputdir/*.csv user@hostmachine.edu:/home/user/sniffwave_tally_files
 ```
-
