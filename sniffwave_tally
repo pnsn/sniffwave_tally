@@ -459,6 +459,7 @@ if __name__=="__main__":
                 filename = outdir + "/" + filename + ".csv"
         except:
             # default: outdir/utc_date_sniffwave_tally.csv
+            now = datetime.utcnow()
             try:
                 filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally." + institution + ".csv"
             except:
