@@ -13,6 +13,7 @@ import sys
 import time
 import re
 import math
+import requests
 from subprocess import Popen,PIPE
 from datetime import datetime
 
@@ -30,7 +31,7 @@ except Exception as e:
 
 
 LATENCY_THRESHOLD = 3.5 # good latency <= 3.5s
-TOLERANCE = 1e-4 # tolerance when comparing begin and end time of packets to determine gaps and overlaps
+TOLERANCE = 1e-2 # tolerance when comparing begin and end time of packets to determine gaps and overlaps
 default_seconds = 10
 
 #DAVN.BHZ.UW.-- (0x32 0x30) 0 i4  40  40.0 2018/05/24 01:43:32.53 (1527126212.5250) 2018/05/24 01:43:33.50 (1527126213.5000) 0x20 0x20 i2 m71 t19 len 224 [D:8173.7s F: 0.0s]
@@ -279,7 +280,7 @@ def send_to_squac(scnldict, prefix):
             response: blah blah
     """
     # LOCAL, STAGING, PRODUCTION
-    ENVIRONMENT = 'STAGING'
+    ENVIRONMENT = 'PRODUCTION'
 
     try:
         USER = os.environ['SQUACAPI_USER']
@@ -301,11 +302,21 @@ def send_to_squac(scnldict, prefix):
 
     metric_names_string = ",".join(metric_names)
     metrics = client.v1_0_measurement_metrics_list(name=metric_names_string)
-    channels = client.v1_0_nslc_channels_list()
+    metric_map = make_metric_map(metrics)
+    # v1_0_nslc_channels_list() can be slow and sometimes timeout, try daily updated flat file from Alex
+    try:
+        r = requests.get("https://seismo.ess.washington.edu/ahutko/ShakeAlert_Chanfiles/squac_channel_map.txt")
+        channel_map = {}
+        for bline in r.iter_lines():
+            line = bline.decode("utf-8")
+            scnl = line.split()[1] + '.' + line.split()[3] + '.' + line.split()[0] + '.' + line.split()[2]
+            sncl_id = int(line.split()[1])
+            channel_map(sncl) = sncl_id
+    except:
+        channels = client.v1_0_nslc_channels_list()
+        channel_map = make_channel_map(channels)
     #channel_groups = client.v1_0_nslc_groups_list(name=channel_group)
     # create lookup maps from metric name/scnl to database IDs
-    metric_map = make_metric_map(metrics)
-    channel_map = make_channel_map(channels)
     #channel_group_map = make_channel_group_map(channel_groups)
     if len(metric_map) == 0:
         print("Warning, no metric ids in SQUAC for the requested metrics, nothing to do")
