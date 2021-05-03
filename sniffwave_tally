@@ -280,12 +280,12 @@ def send_to_squac(scnldict, prefix):
             response: blah blah
     """
     # LOCAL, STAGING, PRODUCTION
-    ENVIRONMENT = 'STAGING'
+#    HOST = 'https://staging-squacapi.pnsn.org'
+    HOST = 'https://squacapi.pnsn.org'
 
     try:
         USER = os.environ['SQUACAPI_USER']
         PASSWORD = os.environ['SQUACAPI_PASSWD']
-        HOST = os.environ[ENVIRONMENT + '_HOST']
 
     except KeyError:
         sys.exit("Requires ENV vars SQUACAPI_USER, SQUACAPI_PASSWD and HOST")
@@ -305,6 +305,10 @@ def send_to_squac(scnldict, prefix):
     metric_map = make_metric_map(metrics)
     # v1_0_nslc_channels_list() can be slow and sometimes timeout, try daily updated flat file from Alex
     try:
+        channels = client.v1_0_nslc_channels_list()
+        channel_map = make_channel_map(channels)
+        if ( len(channel_map) == 0 ): 1/0
+    except:
         r = requests.get("https://seismo.ess.washington.edu/ahutko/ShakeAlert_Chanfiles/squac_channel_map.txt")
         channel_map = {}
         for bline in r.iter_lines():
@@ -312,9 +316,6 @@ def send_to_squac(scnldict, prefix):
             scnl = line.split()[1] + '.' + line.split()[3] + '.' + line.split()[0] + '.' + line.split()[2]
             sncl_id = int(line.split()[1])
             channel_map(sncl) = sncl_id
-    except:
-        channels = client.v1_0_nslc_channels_list()
-        channel_map = make_channel_map(channels)
     #channel_groups = client.v1_0_nslc_groups_list(name=channel_group)
     # create lookup maps from metric name/scnl to database IDs
     #channel_group_map = make_channel_group_map(channel_groups)
@@ -458,7 +459,6 @@ if __name__=="__main__":
                 filename = outdir + "/" + filename + ".csv"
         except:
             # default: outdir/utc_date_sniffwave_tally.csv
-            now = datetime.utcnow()
             try:
                 filename = outdir + "/" + now.strftime("%Y-%m-%d") + "_sniffwave_tally." + institution + ".csv"
             except:
@@ -518,13 +518,14 @@ if __name__=="__main__":
         print("Error running {}: {}".format(cmd,e))
         sys.exit(1)
     output = p.stdout.readlines()
+    now_unix = datetime.utcnow().timestamp()
     if output:
         scnldict={}
         for line in output:
             p=parseline(line)
             if p:
                 (scnl,dt,starttime,endtime,lat,size)=p
-                if endtime > intervalstart or endtime <= intervalstart:
+                if ( endtime > intervalstart or endtime <= intervalstart ) and ( abs(starttime-now_unix) < 86400 ) :
                     packlen = endtime - starttime
                     latency = lat + 0.5*packlen
                     if scnl in scnldict:
