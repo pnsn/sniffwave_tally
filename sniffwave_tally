@@ -309,9 +309,10 @@ def send_to_squac(scnldict, prefix):
         channel_map = {}
         for bline in r.iter_lines():
             line = bline.decode("utf-8")
-            sncl = line.split()[1] + '.' + line.split()[3] + '.' + line.split()[0] + '.' + line.split()[2]
-            sncl_id = int(line.split()[1])
-            channel_map[sncl] = sncl_id
+            nslc = line.split()[0]
+            scnl = nslc.split('.')[1] + '.' + nslc.split('.')[3] + '.' + nslc.split('.')[0] + '.' + nslc.split('.')[2]
+            scnl_id = int(line.split()[1])
+            channel_map[scnl] = scnl_id
         if ( len(channel_map) == 0 ): 1/0
     except:
         channels = client.v1_0_nslc_channels_list()
