@@ -288,7 +288,7 @@ def send_to_squac(scnldict, prefix):
         PASSWORD = os.environ['SQUACAPI_PASSWD']
 
     except KeyError:
-        sys.exit("Requires ENV vars SQUACAPI_USER, SQUACAPI_PASSWD and HOST")
+        sys.exit("Requires ENV vars SQUACAPI_USER, SQUACAPI_PASSWD")
 
     # create API client and retrieve foreign keys from the SQUAC database
     client = get_client(USER, PASSWORD, HOST)
@@ -305,17 +305,17 @@ def send_to_squac(scnldict, prefix):
     metric_map = make_metric_map(metrics)
     # v1_0_nslc_channels_list() can be slow and sometimes timeout, try daily updated flat file from Alex
     try:
-        channels = client.v1_0_nslc_channels_list()
-        channel_map = make_channel_map(channels)
-        if ( len(channel_map) == 0 ): 1/0
-    except:
         r = requests.get("https://seismo.ess.washington.edu/ahutko/ShakeAlert_Chanfiles/squac_channel_map.txt")
         channel_map = {}
         for bline in r.iter_lines():
             line = bline.decode("utf-8")
             sncl = line.split()[1] + '.' + line.split()[3] + '.' + line.split()[0] + '.' + line.split()[2]
             sncl_id = int(line.split()[1])
-            channel_map(sncl) = sncl_id
+            channel_map[sncl] = sncl_id
+        if ( len(channel_map) == 0 ): 1/0
+    except:
+        channels = client.v1_0_nslc_channels_list()
+        channel_map = make_channel_map(channels)
     #channel_groups = client.v1_0_nslc_groups_list(name=channel_group)
     # create lookup maps from metric name/scnl to database IDs
     #channel_group_map = make_channel_group_map(channel_groups)
