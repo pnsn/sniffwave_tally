@@ -93,6 +93,7 @@ def usage():
         Added with option all:
             latency:    average latency (s), defined as feed latency + 0.5 packet length
             latency_stdev:  approximate standard deviation of the latency
+            latency_max:  maximum measured latency
             packet_lenght:  average packet length (s)
             packet_stdev: approximate standard deviation of the packet length
     """
@@ -219,18 +220,19 @@ def latency_report(scnldict):
                              'oo_dur'    : total duration of out-of-order packets
                              'latency'   : average latency (in s,feedlatency + 0.5 packet_length)
                              'latency_stdev' :  approximate standard deviation of latency
+                             'latency_max' :  maximum measured latency
                              'packet_length' :  average packet length (s)
                              'packet_stdev': packet length stdev
                              'bytes': size of data in bytes
         Returns:
             [string]: [scnl,starttime,endtime,duration,n,nlate,ngap,gap_dur,
-            noverlap,overlap_dur,n_oo,oo_dur,latency, latency_stdev,
+            noverlap,overlap_dur,n_oo,oo_dur,latency, latency_stdev, latency_max,
             packet_length, packet_stdev, bytes]
     """
     sep = ","
     key_list = ["starttime", "endtime", "duration", "npackets", "nlate", "ngap", \
                 "gap_dur", "noverlap", "overlap_dur", "n_oo", "oo_dur", "latency", "latency_stdev", \
-                "packet_length", "packet_stdev", "bytes"]
+                "latency_max", "packet_length", "packet_stdev", "bytes"]
     header_list = ["# scnl"]
     header_list.extend(key_list)
     header = sep.join(header_list) + "\n"
@@ -273,6 +275,7 @@ def send_to_squac(scnldict, prefix):
                              'oo_dur'    : total duration of out-of-order packets
                              'latency'   : average latency (in s,feedlatency + 0.5 packet_length)
                              'latency_stdev' :  approximate standard deviation of latency
+                             'latency_max' :  maximum measured latency
                              'packet_length' :  average packet length (s)
                              'packet_stdev': packet length stdev
             prefix (string): string to prepend to metrics name.
@@ -412,7 +415,7 @@ if __name__=="__main__":
             --outdir(string): name of output directory, default = /tmp
             --bindir(string): full path to directory containing sniffwave executable (default = /home/eworm/bin)
             --inst(string): institution name
-            --all: add average latency,stdev latency, average packet lenght, stdev packet length to output.
+            --all: add average latency,stdev latency, max latency, average packet lenght, stdev packet length to output.
             --squac(string): prefix for ring_latency and ring_gaps metrics for squac
         Returns:
             int: status
@@ -423,7 +426,7 @@ if __name__=="__main__":
         writes the following metrics to file:
              scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur
         with option --all:
-             scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur,latency_ave,latency_stdev,packet_length_ave,packet_length_stdev
+             scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur,latency_ave,latency_stdev,latency_max,packet_length_ave,packet_length_stdev
 
     """
     latlon=False
@@ -579,12 +582,14 @@ if __name__=="__main__":
 
     # output at the end of the sniffwave run
     for scnl in scnldict:
-        # get average latency and approximate stdev
+        # get average latency, approximate stdev, and max
         ave, stdev = average_stdev(scnldict[scnl]['latency'], \
                                        scnldict[scnl]['latency_squared'], \
                                        scnldict[scnl]['npackets'])
+        lmax = max(scnldict[scnl]['latency'])
         scnldict[scnl]['latency'] = ave
         scnldict[scnl]['latency_stdev'] = stdev
+        scnldict[scnl]['latency_max'] = lmax
         # get average packet length and approximate stdev
         ave, stdev = average_stdev(scnldict[scnl]['packet_length'], \
                                        scnldict[scnl]['packet_squared'], \
