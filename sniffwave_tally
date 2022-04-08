@@ -301,7 +301,8 @@ def send_to_squac(scnldict, prefix):
     #channel_group = "PNSN Continuous Data"
     metric_names = [prefix + "_ring_latency", prefix + "_ring_packet_length", 
                     prefix + "_ring_gaps_per_hour", prefix + "_ring_latency_le_3.5",
-                    prefix + "_ring_completeness", prefix + "_ring_completeness_incl_gap_penalty"]
+                    prefix + "_ring_completeness", prefix + "_ring_completeness_incl_gap_penalty",
+                    prefix + "_ring_latency_max" ]
 
     metric_names_string = ",".join(metric_names)
     metrics = client.v1_0_measurement_metrics_list(name=metric_names_string)
@@ -331,7 +332,7 @@ def send_to_squac(scnldict, prefix):
                 if '3.5' in m_name:
                     # percent packets not late
                     value = 100 * (scnldict[scnl]['npackets']-scnldict[scnl]['nlate'])/scnldict[scnl]['npackets']
-                elif not '3.5' in m_name and 'latency' in m_name:
+                elif not '3.5' in m_name and not 'max' in m_name and 'latency' in m_name:
                     # average data latency
                     value = scnldict[scnl]['latency']
                 elif 'gaps' in m_name:
@@ -350,6 +351,9 @@ def send_to_squac(scnldict, prefix):
                 elif 'completeness' in m_name:
                     # pct of timewindow that has data.
                     value = 100 * (scnldict[scnl]['duration']-scnldict[scnl]['gap_dur'])/scnldict[scnl]['duration']
+                elif 'latency_max' in m_name:
+                    # maximum latency
+                    value = scnldict[scnl]['latency_max']
                 measurement = WriteOnlyMeasurementSerializer(
                     metric=metric_map[m_name],
                     channel=channel_map[scnl],
