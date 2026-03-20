@@ -13,9 +13,10 @@ import sys
 import time
 import re
 import math
-import requests
 from subprocess import Popen,PIPE
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv('/home/ahutko/.bash_passwords')   
 
 try:
     from squacapi_client.models.write_only_measurement_serializer \
@@ -31,7 +32,7 @@ except Exception as e:
 
 
 LATENCY_THRESHOLD = 3.5 # good latency <= 3.5s
-TOLERANCE = 1e-4 # tolerance when comparing begin and end time of packets to determine gaps and overlaps
+TOLERANCE = 1e-2 # tolerance when comparing begin and end time of packets to determine gaps and overlaps
 default_seconds = 10
 
 #DAVN.BHZ.UW.-- (0x32 0x30) 0 i4  40  40.0 2018/05/24 01:43:32.53 (1527126212.5250) 2018/05/24 01:43:33.50 (1527126213.5000) 0x20 0x20 i2 m71 t19 len 224 [D:8173.7s F: 0.0s]
@@ -48,7 +49,6 @@ relat=re.compile(r'D:([\- 0-9\.]+)s')
 resncl=re.compile(r'^[A-Z0-9]+\.[A-Z0-9]+\.[A-Z0-9]+\.[A-Z0-9-]+')
 # size in bytes is preceded by len and consists of 4 integers: len 408
 rebytes=re.compile(r'len([\s]*[0-9]{1,4})')
-
 
 
 def usage():
@@ -93,8 +93,10 @@ def usage():
         Added with option all:
             latency:    average latency (s), defined as feed latency + 0.5 packet length
             latency_stdev:  approximate standard deviation of the latency
-            packet_lenght:  average packet length (s)
+            latency_max:  maximum measured latency
+            packet_length:  average packet length (s)
             packet_stdev: approximate standard deviation of the packet length
+            bytes:      size of data in bytes
     """
     print(information)
     return
@@ -161,7 +163,6 @@ def average_stdev(x,x2,n):
         stdev = 0.
     return x/n, stdev
 
-
 def eew_stationreport_input(scnldict):
     """
         Creates the minimal csv input to be used by eew_stationreport.
@@ -219,18 +220,19 @@ def latency_report(scnldict):
                              'oo_dur'    : total duration of out-of-order packets
                              'latency'   : average latency (in s,feedlatency + 0.5 packet_length)
                              'latency_stdev' :  approximate standard deviation of latency
+                             'latency_max' :  maximum measured latency
                              'packet_length' :  average packet length (s)
                              'packet_stdev': packet length stdev
                              'bytes': size of data in bytes
         Returns:
             [string]: [scnl,starttime,endtime,duration,n,nlate,ngap,gap_dur,
             noverlap,overlap_dur,n_oo,oo_dur,latency, latency_stdev,
-            packet_length, packet_stdev, bytes]
+            packet_length, packet_stdev, bytes, latency_max]
     """
     sep = ","
     key_list = ["starttime", "endtime", "duration", "npackets", "nlate", "ngap", \
                 "gap_dur", "noverlap", "overlap_dur", "n_oo", "oo_dur", "latency", "latency_stdev", \
-                "packet_length", "packet_stdev", "bytes"]
+                "packet_length", "packet_stdev", "bytes","latency_max"]
     header_list = ["# scnl"]
     header_list.extend(key_list)
     header = sep.join(header_list) + "\n"
@@ -273,6 +275,7 @@ def send_to_squac(scnldict, prefix):
                              'oo_dur'    : total duration of out-of-order packets
                              'latency'   : average latency (in s,feedlatency + 0.5 packet_length)
                              'latency_stdev' :  approximate standard deviation of latency
+                             'latency_max' :  maximum measured latency
                              'packet_length' :  average packet length (s)
                              'packet_stdev': packet length stdev
             prefix (string): string to prepend to metrics name.
@@ -280,45 +283,34 @@ def send_to_squac(scnldict, prefix):
             response: blah blah
     """
     # LOCAL, STAGING, PRODUCTION
-#    HOST = 'https://staging-squacapi.pnsn.org'
-    HOST = 'https://squacapi.pnsn.org'
+    ENVIRONMENT = 'PRODUCTION'
 
     try:
         USER = os.environ['SQUACAPI_USER']
         PASSWORD = os.environ['SQUACAPI_PASSWD']
+        #HOST = os.environ[ENVIRONMENT + '_HOST']
 
     except KeyError:
-        sys.exit("Requires ENV vars SQUACAPI_USER, SQUACAPI_PASSWD")
+        sys.exit("Requires ENV vars SQUACAPI_USER, SQUACAPI_PASSWD and HOST")
 
     # create API client and retrieve foreign keys from the SQUAC database
-    client = get_client(USER, PASSWORD, HOST)
+    client = get_client(USER, PASSWORD)
 
     gap_penalty = 30 # seconds
     # let's automatically add scnl's that are in SQUAC but not yet part of the group to the channel group
     #channel_group = "PNSN Continuous Data"
     metric_names = [prefix + "_ring_latency", prefix + "_ring_packet_length", 
                     prefix + "_ring_gaps_per_hour", prefix + "_ring_latency_le_3.5",
-                    prefix + "_ring_completeness", prefix + "_ring_completeness_incl_gap_penalty"]
+                    prefix + "_ring_completeness", prefix + "_ring_completeness_incl_gap_penalty",
+                    prefix + "_ring_latency_max" ]
 
     metric_names_string = ",".join(metric_names)
-    metrics = client.v1_0_measurement_metrics_list(name=metric_names_string)
-    metric_map = make_metric_map(metrics)
-    # v1_0_nslc_channels_list() can be slow and sometimes timeout, try daily updated flat file from Alex
-    try:
-        r = requests.get("https://seismo.ess.washington.edu/ahutko/ShakeAlert_Chanfiles/squac_channel_map.txt")
-        channel_map = {}
-        for bline in r.iter_lines():
-            line = bline.decode("utf-8")
-            nslc = line.split()[0]
-            scnl = nslc.split('.')[1] + '.' + nslc.split('.')[3] + '.' + nslc.split('.')[0] + '.' + nslc.split('.')[2]
-            scnl_id = int(line.split()[1])
-            channel_map[scnl] = scnl_id
-        if ( len(channel_map) == 0 ): 1/0
-    except:
-        channels = client.v1_0_nslc_channels_list()
-        channel_map = make_channel_map(channels)
-    #channel_groups = client.v1_0_nslc_groups_list(name=channel_group)
+    metrics = client.api_measurement_metrics_list(name=metric_names_string)
+    channels = client.api_nslc_channels_list()
+    #channel_groups = client.api_nslc_groups_list(name=channel_group)
     # create lookup maps from metric name/scnl to database IDs
+    metric_map = make_metric_map(metrics)
+    channel_map = make_channel_map(channels)
     #channel_group_map = make_channel_group_map(channel_groups)
     if len(metric_map) == 0:
         print("Warning, no metric ids in SQUAC for the requested metrics, nothing to do")
@@ -340,7 +332,7 @@ def send_to_squac(scnldict, prefix):
                 if '3.5' in m_name:
                     # percent packets not late
                     value = 100 * (scnldict[scnl]['npackets']-scnldict[scnl]['nlate'])/scnldict[scnl]['npackets']
-                elif not '3.5' in m_name and 'latency' in m_name:
+                elif not '3.5' in m_name and not 'max' in m_name and 'latency' in m_name:
                     # average data latency
                     value = scnldict[scnl]['latency']
                 elif 'gaps' in m_name:
@@ -359,6 +351,9 @@ def send_to_squac(scnldict, prefix):
                 elif 'completeness' in m_name:
                     # pct of timewindow that has data.
                     value = 100 * (scnldict[scnl]['duration']-scnldict[scnl]['gap_dur'])/scnldict[scnl]['duration']
+                elif 'latency_max' in m_name:
+                    # maximum latency
+                    value = scnldict[scnl]['latency_max']
                 measurement = WriteOnlyMeasurementSerializer(
                     metric=metric_map[m_name],
                     channel=channel_map[scnl],
@@ -372,7 +367,6 @@ def send_to_squac(scnldict, prefix):
 
     response, errors = perform_bulk_create(measurements, client)
     return response, errors
-
 
 def getStationDict(url='http://pnsn.org/stations.json'):
     '''gets station list from PNSN json feed and puts data into
@@ -412,7 +406,7 @@ if __name__=="__main__":
             --outdir(string): name of output directory, default = /tmp
             --bindir(string): full path to directory containing sniffwave executable (default = /home/eworm/bin)
             --inst(string): institution name
-            --all: add average latency,stdev latency, average packet lenght, stdev packet length to output.
+            --all: add average latency,stdev latency, max latency, average packet length, stdev packet length to output.
             --squac(string): prefix for ring_latency and ring_gaps metrics for squac
         Returns:
             int: status
@@ -423,7 +417,7 @@ if __name__=="__main__":
         writes the following metrics to file:
              scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur
         with option --all:
-             scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur,latency_ave,latency_stdev,packet_length_ave,packet_length_stdev
+             scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur,latency_ave,latency_stdev,packet_length_ave,packet_length_stdev,bytes,latency_max
 
     """
     latlon=False
@@ -527,39 +521,84 @@ if __name__=="__main__":
             p=parseline(line)
             if p:
                 (scnl,dt,starttime,endtime,lat,size)=p
-                if ( endtime > intervalstart or endtime <= intervalstart ) and ( abs(starttime-now_unix) < 86400 ) :
+                if ( ( endtime > intervalstart or endtime <= intervalstart ) and 
+                   ( abs(starttime-now_unix) < 86400 ) ):
                     packlen = endtime - starttime
                     latency = lat + 0.5*packlen
                     if scnl in scnldict:
+
+                        # --------------------------------------------------------
+                        # PATCHED: Out-of-order detection using high-water-mark
+                        # (max_starttime), with no tracking variable updates
+                        # when a packet is out-of-order.
+                        #
+                        # A packet is out-of-order if its starttime predates
+                        # the latest starttime we have seen so far (by more
+                        # than one sample period). This is more robust than
+                        # comparing against only the previous packet, because
+                        # the high-water mark never gets rolled back.
+                        #
+                        # When an out-of-order packet is detected, we count it
+                        # but do NOT update prev_starttime, prev_endtime, or
+                        # endtime. This prevents a stale packet from corrupting
+                        # the gap/overlap detection for subsequent normal packets.
+                        #
+                        # We still accumulate latency/packet_length/bytes stats
+                        # for out-of-order packets so that averages reflect all
+                        # data that flowed through the ring.
+                        # --------------------------------------------------------
+
+                        if starttime < scnldict[scnl]['max_starttime'] - TOLERANCE:
+                            # --- Out-of-order packet ---
+                            # Count it and accumulate its duration, but do NOT
+                            # touch any of the tracking variables (prev_starttime,
+                            # prev_endtime, endtime, max_starttime).
+                            scnldict[scnl]['n_oo'] += 1
+                            scnldict[scnl]['oo_dur'] += packlen
+
+                        else:
+                            # --- Normal (in-order) packet ---
+                            # Check for gap: does the start of this packet come
+                            # after the end of the previous packet plus one
+                            # sample period (within tolerance)?
+                            if starttime - (scnldict[scnl]['prev_endtime'] + dt) > TOLERANCE:
+                                scnldict[scnl]['ngap'] += 1
+                                scnldict[scnl]['gap_dur'] += (starttime - (scnldict[scnl]['prev_endtime'] + dt))
+
+                            # Check for overlap: does the start of this packet
+                            # fall before the end of the previous packet (within
+                            # tolerance), but the packet is not out-of-order?
+                            if starttime - (scnldict[scnl]['prev_endtime'] + dt) < -1*TOLERANCE:
+                                scnldict[scnl]['noverlap'] += 1
+                                scnldict[scnl]['overlap_dur'] += (starttime - (scnldict[scnl]['prev_endtime'] + dt))
+
+                            # Update tracking variables only for in-order packets
+                            scnldict[scnl]['prev_starttime'] = starttime
+                            scnldict[scnl]['prev_endtime'] = endtime
+                            scnldict[scnl]['endtime'] = endtime
+                            scnldict[scnl]['max_starttime'] = max(starttime, scnldict[scnl]['max_starttime'])
+
+                        # --- Stats accumulated for ALL packets (in-order or not) ---
                         scnldict[scnl]['packet_length'] += packlen
                         scnldict[scnl]['packet_squared'] += packlen*packlen
                         scnldict[scnl]['latency'] += latency
                         scnldict[scnl]['latency_squared'] += latency*latency
                         scnldict[scnl]['bytes'] += size
-                        scnldict[scnl]['npackets']+=1
+                        scnldict[scnl]['npackets'] += 1
+                        if latency > scnldict[scnl]['latency_max']:
+                            scnldict[scnl]['latency_max'] = latency
                         if latency > LATENCY_THRESHOLD:
                             scnldict[scnl]['nlate'] += 1
-                        if starttime - (scnldict[scnl]['prev_endtime'] + dt) > TOLERANCE:
-                            # gap!
-                            scnldict[scnl]['ngap'] += 1
-                            scnldict[scnl]['gap_dur'] += (starttime-(scnldict[scnl]['prev_endtime']+dt))
-                        if starttime - (scnldict[scnl]['prev_endtime'] + dt) < -1*TOLERANCE and \
-                           starttime >= scnldict[scnl]['prev_starttime']: # overlap!
-                            scnldict[scnl]['noverlap'] += 1
-                            scnldict[scnl]['overlap_dur'] += (starttime-(scnldict[scnl]['prev_endtime']+dt))
-                        if endtime < scnldict[scnl]['prev_starttime']:
-                            # starttime pre-dates a packet we've already seen, out-of-order!
-                            scnldict[scnl]['n_oo'] += 1
-                            scnldict[scnl]['oo_dur'] += packlen
-                        scnldict[scnl]['prev_starttime'] = starttime
-                        scnldict[scnl]['endtime'] = endtime
-                        scnldict[scnl]['prev_endtime'] = endtime
+
                     else:
-                        # first packet for this scnl
+                        # First packet for this scnl -- initialize everything.
+                        # max_starttime is the high-water mark for out-of-order
+                        # detection; starts at the first packet's starttime.
                         scnldict[scnl]={'starttime' : starttime,
                                         'prev_starttime' : starttime,
                                         'endtime' : endtime,
                                         'prev_endtime' : endtime,
+                                        'max_starttime' : starttime,
                                         'ngap' : 0,
                                         'gap_dur' : 0.0,
                                         'noverlap' : 0,
@@ -570,6 +609,7 @@ if __name__=="__main__":
                                         'packet_length':packlen,
                                         'packet_squared':packlen*packlen,
                                         'latency':latency,
+                                        'latency_max':latency,
                                         'latency_squared':latency*latency,
                                         'bytes' : 0,
                                         'npackets':1}
@@ -579,7 +619,7 @@ if __name__=="__main__":
 
     # output at the end of the sniffwave run
     for scnl in scnldict:
-        # get average latency and approximate stdev
+        # get average latency, approximate stdev, and max
         ave, stdev = average_stdev(scnldict[scnl]['latency'], \
                                        scnldict[scnl]['latency_squared'], \
                                        scnldict[scnl]['npackets'])
@@ -613,3 +653,4 @@ if __name__=="__main__":
             print("Nothing sent to SQUAC")
 
     sys.exit(0)
+
