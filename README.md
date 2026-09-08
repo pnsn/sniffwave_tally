@@ -2,15 +2,80 @@
 python script and bash wrapper to tally output from earthworm's sniffwave.
 
 # Synopsis
- sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--squac prefix] [--all]
+ sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution] [--squac prefix] [--all] [--latlon]
 ring_name sta chan net loc duration
 
 # Description
 sniffwave_tally does what the name implies, it runs the earthworm program sniffwave for a
-specified duration and writes various stats to a file. Currently it only outputs fields
-needed by the eew_stationreport script (https://github.com/pnsn/station-monitor), however,
-it also calculates the average data latency in s and standard deviation and the average packet length in s and standard deviation. The latency it outputs
-is defined as the time difference between now (current time in sniffwave) and the end of a packet.
+specified duration and writes various stats to a file. The default output contains the
+fields needed by the eew_stationreport script (https://github.com/pnsn/station-monitor);
+the --all option adds average data latency, average packet length, their standard
+deviations, the maximum latency, and the total bytes seen. Latency here is the time
+difference between now (current time in sniffwave) and the end of a packet, plus half a
+packet length.
+
+With --squac the same measurements are posted to SQUAC.
+
+# Change log
+
+## September 8, 2026
+
+The out-of-order packet logic was wrong and has been rewritten. Everything else in this
+release follows from that or is cleanup. Metric values before and after this date are not
+directly comparable, so expect a step in the SQUAC time series for the affected channels.
+
+**Out-of-order detection (the main change).** A packet is now out of order when its start
+time falls more than TOLERANCE (0.01 s) before the highest start time accepted so far for
+that channel. The old test asked whether the packet's *end* time preceded the *previous*
+packet's start time, which missed any late packet that started early but overlapped its
+predecessor, and missed reordering relative to anything older than the immediately
+preceding packet. n_oo and oo_dur read higher than before.
+
+**Out-of-order packets no longer corrupt the gap count (the main consequence).** The old
+code rolled prev_starttime, prev_endtime, and endtime back to the stale packet, so the
+next normally ordered packet was measured against a time in the past and reported as a
+gap of roughly two packet lengths that never happened. The tracking times are now frozen
+for out-of-order packets. ngap, gap_dur, and gaps_per_hour read lower and both
+completeness metrics read higher on any channel that reorders.
+
+**Gap, overlap, and out-of-order are now mutually exclusive.** A packet is counted in at
+most one of the three. Previously a second out-of-order packet overlapping the first could
+land in both n_oo and noverlap.
+
+**Backfilled gaps are reported as both a gap and an out-of-order packet, by design.** The
+gap was real when the stream skipped the interval; the late packet is real when it
+arrives. Nothing retroactively removes a gap that was later filled, so a retransmitting
+link shows both.
+
+Other changes:
+
+- overlap_dur is now positive. It was previously negative. The magnitude is unchanged, but
+  any alarm or plot written against the old sign needs updating.
+- oo_dur is unchanged in definition: the summed *length* of the out-of-order packets.
+  Note this is the opposite convention from overlap_dur, which sums a distance in time.
+- endtime is now the end of the last in-order packet, so a late packet can no longer roll
+  it backward and shrink the window that completeness and gaps_per_hour divide by.
+  starttime remains the start of the first packet *seen* for the channel, in arrival order.
+- n_oo, oo_dur, noverlap, and overlap_dur are now sent to SQUAC. They were previously
+  computed and written to the CSV but never posted. As with all metrics, they must already
+  exist in the SQUAC database under the given prefix; missing ones are skipped and their
+  names printed at the start of the run.
+- The byte total now includes each channel's first packet, which was previously dropped.
+- The check that discards packets more than 86400 s from the present used a naive UTC
+  timestamp compared against epoch seconds, so the window was shifted by the server's UTC
+  offset on any host not set to UTC. Fixed.
+- Blank lines from sniffwave no longer raise IndexError, and a run that returns no output
+  no longer raises NameError.
+- Division by the window length is floored, so a channel contributing a single very short
+  packet can no longer raise ZeroDivisionError.
+- --latlon is deprecated. getStationDict uses urllib.urlopen and is Python 2 only, so the
+  option raises AttributeError under Python 3.
+- TOLERANCE is unchanged at 0.01 s. Note it is absolute, so it is 0.4 samples at 40 sps,
+  1 sample at 100 sps, and 2 samples at 200 sps: sub-tolerance gaps and overlaps are
+  invisible at high sample rates.
+
+Per-metric documentation: prefix_ring_n_oo.md, prefix_ring_oo_dur.md,
+prefix_ring_noverlap.md, prefix_ring_overlap_dur.md.
 
 ## Arguments
 *Required:*
@@ -43,13 +108,25 @@ where YYYY-MM-dd is today's UTC date)</dd>
 <dt>--inst institution</dt>
 <dd>name of institution identifier to append to output file.
  If fname not given default will be: YYYY-MM-dd_sniffwave_tally.INST.csv </dd>
- <dt>--squac prefix</dt>
- Try to send measurements to the SQUAC api as well. Requires a SQUAC user account
- with contributor privileges.
- <dt>--latlon</dt>
- <dd>Retrieve station latitude and longitude from http://pnsn.org/stations.json</dd>
+<dt>--squac prefix</dt>
+<dd>Also send measurements to the SQUAC api, with prefix prepended to each metric name.
+Requires a SQUAC user account with contributor privileges, and implies --all.
+Credentials are read from the environment variables SQUACAPI_USER and SQUACAPI_PASSWD.
+The cron wrapper sources ~/.squac.env (mode 600) to set them; for interactive runs the
+script falls back to reading the file named by SQUACAPI_ENV_FILE, defaulting to
+~/.squac.env for the account running it.
+Metrics posted: prefix_ring_latency, prefix_ring_latency_max, prefix_ring_latency_le_3.5,
+prefix_ring_packet_length, prefix_ring_gaps_per_hour, prefix_ring_completeness,
+prefix_ring_completeness_incl_gap_penalty, prefix_ring_n_oo, prefix_ring_oo_dur,
+prefix_ring_noverlap, prefix_ring_overlap_dur.
+Each must already exist in SQUAC under that prefix; missing ones are named on stdout and
+skipped.</dd>
+<dt>--latlon</dt>
+<dd>DEPRECATED, Python 2 only. Retrieve station latitude and longitude from
+http://pnsn.org/stations.json</dd>
 <dt>--all</dt>
-<dd>Add average and standard deviation of the measured latencies and packet lengths, as well as total number of bytes sent to the output.</dd>
+<dd>Add average and standard deviation of the measured latencies and packet lengths, the
+maximum latency, and total number of bytes to the output.</dd>
 </dl>
 
 ## Output format
@@ -64,38 +141,60 @@ only one output format, a comma-separated-values (csv) file with the following f
 <dt>scnl</dt>
 <dd>STA.CHAN.NET.LOC channel description</dd>
 <dt>starttime</dt>
-<dd>starttime of the earliest packet in measurement time window, in UNIX epoch seconds</dd>
+<dd>starttime of the first packet seen for this channel, in arrival order, in UNIX epoch
+seconds. Not necessarily the earliest packet in time, since a backfilled packet arriving
+later is not used to move it back.</dd>
 <dt>endtime</dt>
-<dd>endtime of the last packet in measurement time window, in UNIX epoch seconds</dd>
+<dd>endtime of the last in-order packet for this channel, in UNIX epoch seconds. Packets
+counted as out of order do not advance it.</dd>
 <dt>duration</dt>
-<dd>total duration of packets processed during the measurement window, in seconds.</dd>
+<dd>endtime minus starttime, in seconds, i.e. the span this channel actually covered. This
+is normally a little less than the sniffwave run duration, and is the denominator for the
+completeness and gaps_per_hour metrics.</dd>
 <dt>npackets</dt>
-<dd>number of packets processed during the measurement window</dd>
+<dd>number of packets processed during the measurement window, including out-of-order and
+overlapping ones</dd>
 <dt>nlate</dt>
 <dd>number of packets with latencies > 3.5s</dd>
 <dt>ngap</dt>
-<dd>number of gaps between packets</dd>
+<dd>number of gaps, i.e. packets starting more than TOLERANCE after the previous in-order
+packet's next expected sample</dd>
 <dt>gap_dur</dt>
-<dd>total duration of gaps, in seconds<dd>
+<dd>total duration of gaps, in seconds</dd>
 <dt>noverlap</dt>
-<dd>number of packets that overlap a previous packet</dd>
+<dd>number of packets starting more than TOLERANCE before the previous in-order packet's
+next expected sample, i.e. re-delivering data already seen</dd>
 <dt>overlap_dur</dt>
-<dd>total duration of overlaps, in seconds</dd>
+<dd>summed time by which those packets started early, in seconds, positive. A distance in
+time, not a sum of packet lengths.</dd>
 <dt>n_oo</dt>
-<dd>number of out-of-order packets</dd>
+<dd>number of out-of-order packets, i.e. packets starting more than TOLERANCE before the
+highest start time seen so far for this channel</dd>
 <dt>oo_dur</dt>
-<dd>total duration of out-of-order packets, in seconds</dd>
+<dd>summed length of those out-of-order packets, in seconds, positive. A sum of packet
+lengths, not a distance in time.</dd>
 <dt>Added with option --all:</dt>
 <dt>latency</dt>
 <dd>average data latency (s), defined as
-time of packet arrival and reading from ring - time of last sample in most recent packet</dd>
+time of packet arrival and reading from ring - time of last sample in most recent packet,
+plus half a packet length</dd>
 <dt>latency_stdev</dt>
 <dd>approximate standard deviation of the latency</dd>
 <dt>packet_length</dt>
 <dd>average packet length (s)</dd>
 <dt>packet_stdev</dt>
 <dd>approximate standard deviation of the packet length</dd>
+<dt>bytes</dt>
+<dd>total size of the data seen, in bytes</dd>
+<dt>latency_max</dt>
+<dd>maximum latency seen (s). Useful for separating network reordering, a few seconds,
+from a station time jump or buffer backfill, which shows latencies far exceeding the run
+duration.</dd>
 </dl>
+
+Note: gap, overlap, and out-of-order are mutually exclusive; each packet is counted in at
+most one of them. A gap that is later backfilled appears in both ngap and n_oo, which is
+intended.
 
 # cron_sniffwave_tally.sh
 Shell-script wrapper to run sniffwave_tally as a cron-job.
@@ -123,6 +222,10 @@ RINGNAME=WAVE_RING            # earthworm wave ring to monitor
 DURATION=600                  # duration to run sniffwave for in s
 INSTITUTION=PNSN              # an identifier for your institution
 ```
+
+Note that all diagnostics, including the list of SQUAC metrics that could not be found,
+go to stdout and therefore to `/tmp/cron_sniffwave_tally.out`, not into the csv.
+
 # Collecting latency information for eew_stationreport
 
 ## Step by step:
@@ -173,6 +276,9 @@ LRIV.ENZ.UW.--,1573603750.68,1573604350.67,599.99000001,600,0,0,0.0,0,0.0,0,0.0,
 LUMI.ENE.UW.--,1573603750.68,1573604350.67,599.99000001,600,0,0,0.0,0,0.0,0,0.0,1.44316667144,0.0852250289267,0.990000009537,0.0,277936
 ...
 ```
+The two examples above predate the September 8, 2026 release; current output carries one
+more column, latency_max, after bytes.
+
 5. Delete the csv you just created, set the duration in the shell script to desired value, set up the cronjob e.g.:
 05,15,25,35,45,55 * * * * /full/path/to/cron_sniffwave_tally.sh > /tmp/cron_sniffwave_tally.out 2>&1
 
