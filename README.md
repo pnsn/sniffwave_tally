@@ -2,7 +2,7 @@
 python script and bash wrapper to tally output from earthworm's sniffwave.
 
 # Synopsis
- sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution] [--squac prefix] [--all] [--latlon]
+ sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution] [--squac prefix] [--all] 
 ring_name sta chan net loc duration
 
 # Description
@@ -68,7 +68,7 @@ Other changes:
   no longer raises NameError.
 - Division by the window length is floored, so a channel contributing a single very short
   packet can no longer raise ZeroDivisionError.
-- --latlon is deprecated. getStationDict uses urllib.urlopen and is Python 2 only, so the
+- --latlon is removed. getStationDict uses urllib.urlopen and is Python 2 only, so the
   option raises AttributeError under Python 3.
 - TOLERANCE is unchanged at 0.01 s. Note it is absolute, so it is 0.4 samples at 40 sps,
   1 sample at 100 sps, and 2 samples at 200 sps: sub-tolerance gaps and overlaps are
@@ -121,9 +121,6 @@ prefix_ring_completeness_incl_gap_penalty, prefix_ring_n_oo, prefix_ring_oo_dur,
 prefix_ring_noverlap, prefix_ring_overlap_dur.
 Each must already exist in SQUAC under that prefix; missing ones are named on stdout and
 skipped.</dd>
-<dt>--latlon</dt>
-<dd>DEPRECATED, Python 2 only. Retrieve station latitude and longitude from
-http://pnsn.org/stations.json</dd>
 <dt>--all</dt>
 <dd>Add average and standard deviation of the measured latencies and packet lengths, the
 maximum latency, and total number of bytes to the output.</dd>
