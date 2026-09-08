@@ -55,7 +55,7 @@ def usage():
 
     information = \
     """
-        Usage: sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution_id ] [--squac prefix] [--all] [--latlon] ring_name sta chan net loc duration
+        Usage: sniffwave_tally [--fname filename] [--bindir sniffwave-bin-dir] [--outdir output-dir] [--inst institution_id ] [--squac prefix] [--all] ring_name sta chan net loc duration
 
         where:
             ring_name:	name of earthworm ring to sniff
@@ -79,7 +79,6 @@ def usage():
                                    prefix_ring_n_oo, prefix_ring_oo_dur,
                                    prefix_ring_noverlap, prefix_ring_overlap_dur.
             --all               :  Add average and standard deviation of the measured latencies and packet lengths, as well as total number of bytes sent to the output.
-            --latlon            :  DEPRECATED, does not work under Python 3.  Adds station lat-lon from the PNSN station feed.
 
         Default Output (for eewreport):
             creates or appends to file the following fields:
@@ -469,7 +468,6 @@ if __name__=="__main__":
              scnl, starttime, endtime, duration, npackets, nlate, ngap, gap_dur, noverlap, overlap_dur, n_oo, oo_dur,latency_ave,latency_stdev,packet_length_ave,packet_length_stdev,bytes,latency_max
 
     """
-    latlon=False
     output_all=False
     to_squac=False
     metric_prefix=""
@@ -524,9 +522,6 @@ if __name__=="__main__":
             sys.argv.pop(index)
         except:
             pass #  keep default
-        if '--latlon' in sys.argv:  #add lat-lon to output
-            latlon=getStationDict()
-            sys.argv.remove('--latlon')
         if '--all' in sys.argv:  #add latency and packet_length to output
             output_all = True
             sys.argv.remove('--all')
