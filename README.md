@@ -18,7 +18,7 @@ With --squac the same measurements are posted to SQUAC.
 
 # Change log
 
-## September 8, 2026
+## September 14, 2026
 
 The out-of-order packet logic was wrong and has been rewritten. Everything else in this
 release follows from that or is cleanup. Metric values before and after this date are not
@@ -273,7 +273,7 @@ LRIV.ENZ.UW.--,1573603750.68,1573604350.67,599.99000001,600,0,0,0.0,0,0.0,0,0.0,
 LUMI.ENE.UW.--,1573603750.68,1573604350.67,599.99000001,600,0,0,0.0,0,0.0,0,0.0,1.44316667144,0.0852250289267,0.990000009537,0.0,277936
 ...
 ```
-The two examples above predate the September 8, 2026 release; current output carries one
+The two examples above predate the September 14, 2026 release; current output carries one
 more column, latency_max, after bytes.
 
 5. Delete the csv you just created, set the duration in the shell script to desired value, set up the cronjob e.g.:
